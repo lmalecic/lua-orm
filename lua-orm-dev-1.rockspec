@@ -16,6 +16,6 @@ dependencies = {
 build = {
 	type = "builtin",
 	modules = {
-		["lua-orm"] = "src/init.lua",
+		["lua-orm"] = "src/orm.lua",
 	}
 }
