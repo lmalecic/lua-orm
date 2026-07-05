@@ -1,3 +1,0 @@
-local Orm = {}
-
-return Orm
