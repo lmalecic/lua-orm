@@ -1,7 +1,9 @@
 --- @class Type
 --- @field name string
+--- @field class Type
 local Type = {}
 Type.__index = Type
+Type.class = Type
 
 --- @param name string
 --- @return Type

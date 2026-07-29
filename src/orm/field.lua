@@ -1,4 +1,4 @@
---- @class Column
+--- @class Field
 --- @field name string
 --- @field type Type
 --- @field nullable boolean
@@ -7,34 +7,57 @@
 --- @field isPrimaryKey boolean
 --- @field autoIncrement boolean
 --- @field identityMode string
-local Column = {}
-Column.__index = Column
+local Field = setmetatable({}, {
+	--- @param name string
+	--- @param type Type
+	--- @return Field
+	__call = function(self, name, type)
+		return self.new(name, type)
+	end
+})
+Field.__index = Field
 
-Column.IdentityMode = {
+Field.IdentityMode = {
 	ALWAYS = "ALWAYS",
 	BY_DEFAULT = "BY DEFAULT"
 }
 
-function Column.raw(sql)
+--- @param name string
+--- @param type Type
+--- @return Field
+function Field.new(name, type)
+	local self = setmetatable({}, Field)
+	self.name = name
+	self.type = type
+	self.nullable = true
+	self.isUnique = false
+	self.defaultValue = nil
+	self.isPrimaryKey = false
+	self.autoIncrement = false
+	self.identityMode = nil
+	return self
+end
+
+function Field.raw(sql)
 	return { __raw = true, value = sql }
 end
 
-function Column:notNull()
+function Field:notNull()
 	self.nullable = false
 	return self
 end
 
-function Column:null()
+function Field:null()
 	self.nullable = true
 	return self
 end
 
-function Column:unique()
+function Field:unique()
 	self.isUnique = true
 	return self
 end
 
-function Column:default(value)
+function Field:default(value)
 	self.defaultValue = value
 	return self
 end
@@ -43,7 +66,7 @@ end
 --- @field autoIncrement boolean?
 --- @field identity string?
 --- @param opts PrimaryKeyOptions?
-function Column:primaryKey(opts)
+function Field:primaryKey(opts)
 	opts = opts or {}
 	self.isPrimaryKey = true
 	self.nullable = false
@@ -55,7 +78,7 @@ function Column:primaryKey(opts)
 
 		if opts.identity ~= nil then
 			local found = false
-			for _, v in pairs(Column.IdentityMode) do
+			for _, v in pairs(Field.IdentityMode) do
 				if v == opts.identity then
 					found = true
 					break
@@ -66,7 +89,7 @@ function Column:primaryKey(opts)
 		end
 
 		self.autoIncrement = true
-		self.identityMode = opts.identity or Column.IdentityMode.ALWAYS
+		self.identityMode = opts.identity or Field.IdentityMode.ALWAYS
 	end
 
 	return self
@@ -82,7 +105,7 @@ local function formatDefault(typeInstance, value)
 	return typeInstance:formatDefault(value)
 end
 
-function Column:toSql()
+function Field:toSql()
 	local sql = { '"' .. self.name .. '"', self.type:toSql() }
 
 	if self.autoIncrement then
@@ -108,18 +131,4 @@ function Column:toSql()
 	return table.concat(sql, " ")
 end
 
---- @param name string
---- @param type Type
---- @return Column
-return function(name, type)
-	local self = setmetatable({}, Column)
-	self.name = name
-	self.type = type
-	self.nullable = true
-	self.isUnique = false
-	self.defaultValue = nil
-	self.isPrimaryKey = false
-	self.autoIncrement = false
-	self.identityMode = nil
-	return self
-end
+return Field

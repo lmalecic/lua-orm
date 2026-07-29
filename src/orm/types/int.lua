@@ -1,11 +1,16 @@
-local Type = require("src.types.type")
+local Type = require("orm.types.type")
 
 --- @class Int : Type
 local Int = setmetatable({}, { __index = Type })
 Int.__index = Int
+Int.class = Int
 
 Int.MIN = -2 ^ 31
 Int.MAX = 2 ^ 31 - 1
+
+function Int.new()
+    return setmetatable(Type.new("INT"), Int) --[[@as Int]]
+end
 
 function Int:supportsAutoIncrement()
 	return true
@@ -18,4 +23,4 @@ function Int:formatDefault(value)
 	return tostring(math.floor(value))
 end
 
-return setmetatable(Type.new("INT"), Int) --[[@as Int]]
+return Int.new()
