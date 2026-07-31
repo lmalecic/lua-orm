@@ -1,4 +1,4 @@
-local Type = require("orm.types.type")
+local Type = require("orm.metadata.types.type")
 
 --- @class Text : Type
 local Text = setmetatable({}, { __index = Type })

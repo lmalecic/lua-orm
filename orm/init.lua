@@ -1,7 +1,5 @@
 local pgmoon = require("pgmoon")
 
---- @class Schema: { [number]: Field } }
-
 --- @class Orm
 --- @field client any
 --- @field schema Schema
