@@ -1,4 +1,4 @@
-local Type = require("orm.types.type")
+local Type = require("orm.metadata.types.type")
 local CurrentTimestamp = require("orm.current-timestamp")
 
 --- @class Timestamp : Type
@@ -12,10 +12,10 @@ end
 
 function Timestamp:formatDefault(value)
 	if type(value) == "string" then
-        return "'" .. value .. "'"
-	elseif type(value == "table") then
+        return "'" .. value:gsub("'", "''") .. "'"
+	elseif type(value) == "table" then
 		if value.class == CurrentTimestamp then
-			return tostring(CurrentTimestamp)
+			return tostring(value)
 		end
 	end
 	error("TIMESTAMP default must be a string literal, a CurrentTimestamp instance or Field.raw(...)")

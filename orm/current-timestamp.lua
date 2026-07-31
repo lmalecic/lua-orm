@@ -14,8 +14,11 @@ CurrentTimestamp.class = CurrentTimestamp
 --- @return CurrentTimestamp
 function CurrentTimestamp.new(precision)
     local self = setmetatable({}, CurrentTimestamp)
+    if precision ~= nil then
+        assert(type(precision) == "number" and precision >= 0 and precision % 1 == 0,
+            "CURRENT_TIMESTAMP precision must be a non-negative integer")
+    end
     self.precision = precision
-    print(tostring(self))
     return self
 end
 
