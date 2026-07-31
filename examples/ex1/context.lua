@@ -1,4 +1,4 @@
-local Orm = require("orm")
+local DbContext = require("orm.core.context")
 local lfs = require("lfs")
 
 local config = {
@@ -19,4 +19,4 @@ for file in lfs.dir("examples/ex1/models") do
     end
 end
 
-return Orm.new(config, schema)
+return DbContext.new(config, schema)

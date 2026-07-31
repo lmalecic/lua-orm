@@ -15,7 +15,6 @@ CurrentTimestamp.class = CurrentTimestamp
 function CurrentTimestamp.new(precision)
     local self = setmetatable({}, CurrentTimestamp)
     self.precision = precision
-    print(tostring(self))
     return self
 end
 
