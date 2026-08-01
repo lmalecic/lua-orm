@@ -6,4 +6,6 @@ local db = require("context")
 local testSet = db.data.test
 local anotherTestSet = db.data.test2
 
-print(testSet ~= nil, anotherTestSet ~= nil)
+db.data.test:where(function(test)
+	return test.id:eq(1)
+end)

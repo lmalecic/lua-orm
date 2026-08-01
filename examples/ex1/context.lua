@@ -1,4 +1,4 @@
-local DbContext = require("orm.core.context")
+local DbContext = require("orm.context")
 local lfs = require("lfs")
 
 local config = {

@@ -1,5 +1,3 @@
-local EntityState = require("orm.runtime.entity-state")
-
 --- @class DataSet
 --- @field model Model
 local DataSet = {}
@@ -28,7 +26,7 @@ function DataSet:find(id)
 
 end
 
-function DataSet:where(expression)
+function DataSet:where(expressionFunc)
 
 end
 

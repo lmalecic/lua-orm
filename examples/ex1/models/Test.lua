@@ -1,7 +1,7 @@
-local Model = require("orm.metadata.model")
-local Field = require("orm.metadata.field")
-local Types = require("orm.metadata.types")
-local CurrentTimestamp = require("orm.metadata.current-timestamp")
+local Model = require("orm.model")
+local Field = require("orm.model.field")
+local Types = require("orm.model.types")
+local CurrentTimestamp = require("orm.model.current-timestamp")
 
 local Test = Model("test", {
 	Field("id", Types.Int):primaryKey(),
@@ -20,10 +20,6 @@ local Test = Model("test", {
 		:default(67694142),
 	Field("float", Types.Float),
 })
-
-function Test.new()
-    local self = setmetatable({}, Test)
-	return self
-end
+Test.__index = Test
 
 return Test

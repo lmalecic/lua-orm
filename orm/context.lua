@@ -1,5 +1,5 @@
-local Connection = require("orm.core.connection")
-local DataSet = require("orm.runtime.dataset")
+local Connection = require("orm.connection")
+local DataSet = require("orm.query.dataset")
 
 --- @class Schema: { [number]: Field } }
 
