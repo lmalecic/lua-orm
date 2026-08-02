@@ -1,7 +1,7 @@
 local Model = require("orm.model")
 local Field = require("orm.model.field")
 local Types = require("orm.model.types")
-local CurrentTimestamp = require("orm.model.current-timestamp")
+local CurrentTimestamp = require("orm.model.expressions.current-timestamp")
 
 local Test = Model("test", {
 	Field("id", Types.Int):primaryKey(),
@@ -20,6 +20,5 @@ local Test = Model("test", {
 		:default(67694142),
 	Field("float", Types.Float),
 })
-Test.__index = Test
 
 return Test

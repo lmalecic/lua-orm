@@ -3,8 +3,16 @@ local DataSet = require("orm.query.dataset")
 
 --- @class Schema: { [number]: Field } }
 
+--- @class DbConfig
+--- @field host string
+--- @field port integer?
+--- @field database string
+--- @field user string?
+--- @field password string?
+--- @field autoMigrate boolean?
+
 --- @class DbContext
---- @field config ConnectionConfig
+--- @field config DbConfig
 --- @field connection Connection
 --- @field schema Schema
 --- @field data table<string, DataSet>

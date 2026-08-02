@@ -1,5 +1,5 @@
 local Type = require("orm.model.types.type")
-local CurrentTimestamp = require("orm.model.current-timestamp")
+local CurrentTimestamp = require("orm.model.expressions.current-timestamp")
 
 --- @class TimestampTz : Type
 local TimestampTz = setmetatable({}, { __index = Type })

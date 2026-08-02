@@ -6,15 +6,7 @@ local pgmoon = require("pgmoon")
 local Connection = {}
 Connection.__index = Connection
 
---- @class ConnectionConfig
---- @field host string
---- @field port integer?
---- @field database string
---- @field user string?
---- @field password string?
---- @field autoMigrate boolean?
-
---- @param config ConnectionConfig
+--- @param config DbConfig
 --- @return Connection
 function Connection.new(config)
     assert(type(config) == "table", "Connection config must be a table!")
