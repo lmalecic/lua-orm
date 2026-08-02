@@ -10,11 +10,5 @@ local Test2 = Model("test2", {
 		:default(67694142),
 	Field("float", Types.Float),
 })
-Test2.__index = Test2
-
-function Test2.new()
-    local self = setmetatable({}, Test2)
-	return self
-end
 
 return Test2
