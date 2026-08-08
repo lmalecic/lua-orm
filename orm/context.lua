@@ -28,18 +28,32 @@ function Context.new(config, schema)
 
     self.connection = Connection.new(config)
     self.schema = schema
-    self.data = {}
+
+    local data = {}
+    local modelClasses = {}
 
     for _, model in ipairs(schema) do
-        assert(not self.data[model.tableName], "Table " .. model.tableName .. " already exists!")
-        self.data[model.tableName] = DataSet.new(model, self)
+        assert(not data[model.tableName], "Model " .. model.tableName .. " already exists")
+        modelClasses[model.tableName] = model
     end
+
+    self.data = setmetatable(data, {
+        __index = function(_, k)
+            local modelClass = modelClasses[k]
+            assert(modelClass, "Invalid index on context.data; model " .. k .. " not found")
+            return DataSet.new(modelClass, self)
+        end,
+
+        __newindex = function(_, _, _)
+            error("Setting values on context.data is not allowed")
+        end
+    })
 
     return self
 end
 
 function Context:getCompiler()
-	return self.config.compilerClass.new()
+	return self.config.compilerClass.new(self.connection.client)
 end
 
 function Context:saveChanges()

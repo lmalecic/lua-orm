@@ -1,22 +1,52 @@
-local LogicalNode = require("orm.query.node.logical")
-local UnaryNode = require("orm.query.node.unary")
-
+--- @class Query
+--- @field modelClass ModelClass
+--- @field context DbContext
+--- @field nodes { where: table?, orderBy: table? }
 local Query = {}
+Query.__index = Query
 
-function Query.and_(...)
-	return LogicalNode.new(LogicalNode.Operators.AND, ...)
+--- @param modelClass ModelClass
+--- @param context DbContext
+function Query.new(modelClass, context)
+    return setmetatable({
+        modelClass = modelClass,
+        context = context,
+        nodes = { where = nil, orderBy = nil },
+    }, Query)
 end
 
-function Query.or_(...)
-	return LogicalNode.new(LogicalNode.Operators.OR, ...)
-end
-
-function Query.not_(node)
-    if node.__index == UnaryNode and node.op == UnaryNode.Operators.NOT then
-        return node.operand
+function Query:where(expressionFunc)
+    if not self.nodes.where then
+        self.nodes.where = {}
     end
 
-	return UnaryNode.new(UnaryNode.Operators.NOT, node)
+    table.insert(self.nodes.where, expressionFunc(self.modelClass.asProxy()))
+
+    return self
+end
+
+function Query:orderBy(expressionFunc)
+    if not self.nodes.orderBy then
+        self.nodes.orderBy = {}
+    end
+
+    for _, node in ipairs({ expressionFunc(self.modelClass.asOrderProxy()) }) do
+        table.insert(self.nodes.orderBy, node)
+    end
+
+    return self
+end
+
+function Query:all()
+    -- compile
+    local compiler = self.context:getCompiler()
+    local sql, params = compiler:compileSelect(self)
+    print(sql, params)
+    -- execute on connection
+end
+
+function Query:first()
+    -- compile
 end
 
 return Query

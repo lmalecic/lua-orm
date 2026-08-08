@@ -1,5 +1,6 @@
+local EntityProxy = require("orm.query.entity-proxy")
 local FieldProxy = require("orm.query.field-proxy")
--- local Expressions = require("orm.model.expressions")
+local OrderFieldProxy = require("orm.query.order-field-proxy")
 
 local function isSqlExpression(value)
 
@@ -10,6 +11,8 @@ end
 --- @field fields { [number]: Field }
 --- @field primaryKey string
 --- @field new fun(data: table): ModelClass
+--- @field asProxy fun(): FieldProxy
+--- @field asOrderProxy fun(): OrderFieldProxy
 
 --- @param tableName string
 --- @param fields { [number]: Field }
@@ -20,16 +23,19 @@ return function(tableName, fields)
     ModelClass.fields = fields
     ModelClass.primaryKey = nil
 
-    local fieldProxies = {}
+    local fieldProxies, orderProxies = {}, {}
 
     for _, field in ipairs(fields) do
         ModelClass.fields[field.name] = field
         fieldProxies[field.name] = FieldProxy.new(tableName, field.name)
+        orderProxies[field.name] = OrderFieldProxy.new(tableName, field.name)
 
         if field.isPrimaryKey then
             ModelClass.primaryKey = field.name
         end
     end
+
+    local entityProxy = EntityProxy.new(ModelClass, fieldProxies)
 
     function ModelClass.new(data)
         local self = setmetatable({}, ModelClass)
@@ -54,7 +60,11 @@ return function(tableName, fields)
     end
 
     function ModelClass.asProxy()
-    	return fieldProxies
+        return entityProxy
+    end
+
+    function ModelClass.asOrderProxy()
+        return orderProxies
     end
 
     return ModelClass

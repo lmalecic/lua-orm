@@ -3,6 +3,9 @@ local ComparisonNode = require("orm.query.node.comparison")
 local LogicalNode = require("orm.query.node.logical")
 local UnaryNode = require("orm.query.node.unary")
 
+--- @class FieldProxy
+--- @field table string
+--- @field column string
 local FieldProxy = {}
 FieldProxy.__index = FieldProxy
 

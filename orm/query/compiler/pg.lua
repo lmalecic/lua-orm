@@ -1,11 +1,30 @@
 local FieldProxy = require("orm.query.field-proxy")
+local OrderFieldProxy = require("orm.query.order-field-proxy")
+
 local ConstantNode = require("orm.query.node.constant")
 local ComparisonNode = require("orm.query.node.comparison")
 local LogicalNode = require("orm.query.node.logical")
 local UnaryNode = require("orm.query.node.unary")
+local OrderNode = require("orm.query.node.order")
 
 local PgCompiler = {}
 PgCompiler.__index = PgCompiler
+
+local Keywords = {
+    SELECT = "SELECT",
+    FROM = "FROM",
+    WHERE = "WHERE",
+    ORDER_BY = "ORDER BY"
+}
+
+local OrderDirection = {
+    [OrderNode.Direction.ASC] = "ASC",
+    [OrderNode.Direction.DESC] = "DESC",
+}
+
+local Syntax = {
+    ALL_COLUMNS = "*"
+}
 
 local Operators = {
     [LogicalNode.Operators.AND] = "AND",
@@ -22,9 +41,10 @@ local Operators = {
     [UnaryNode.Operators.NOT] = "NOT",
 }
 
-function PgCompiler.new()
+function PgCompiler.new(postgres)
     local self = setmetatable({}, PgCompiler)
     self.params = {}
+    self.postgres = postgres
     return self
 end
 
@@ -33,11 +53,12 @@ function PgCompiler:_addParam(value)
     return "$" .. tostring(#self.params)
 end
 
-function PgCompiler:_compileNode(node)
-	assert(type(node) == "table", "node must be a table")
+function PgCompiler:_compileWhereNode(node)
+    assert(type(node) == "table", "node must be a table")
 
     if node.__index == FieldProxy then
-        return string.format('"%s"."%s"', node.table, node.column)
+        return string.format("%s.%s", self.postgres:escape_identifier(node.table),
+            self.postgres:escape_identifier(node.column))
     end
 
     if node.__index == ConstantNode then
@@ -47,7 +68,7 @@ function PgCompiler:_compileNode(node)
     if node.__index == ComparisonNode then
         local op = Operators[node.op]
         assert(op, "unsupported comparison operator: " .. tostring(node.op))
-        return string.format("(%s %s %s)", self:_compileNode(node.left), op, self:_compileNode(node.right))
+        return string.format("(%s %s %s)", self:_compileWhereNode(node.left), op, self:_compileWhereNode(node.right))
     end
 
     if node.__index == LogicalNode then
@@ -57,7 +78,7 @@ function PgCompiler:_compileNode(node)
         -- N-ary iteration over node.children (or node.nodes)
         local parts = {}
         for i, child in ipairs(node.children) do
-            parts[i] = self:_compileNode(child)
+            parts[i] = self:_compileWhereNode(child)
         end
 
         local delimiter = string.format(" %s ", op)
@@ -65,21 +86,66 @@ function PgCompiler:_compileNode(node)
     end
 
     if node.__index == UnaryNode then
-    	local op = Operators[node.op]
+        local op = Operators[node.op]
         assert(op, "unsupported unary operator: " .. tostring(node.op))
 
-        local targetSql = self:_compileNode(node.operand)
+        local targetSql = self:_compileWhereNode(node.operand)
         local first = node.opFirst and op or targetSql
         local second = not node.opFirst and op or targetSql
 
         return string.format("(%s %s)", first, second)
     end
 
-    error("Unsupported node type!")
+    error("Unsupported node type in WHERE clause")
 end
 
-function PgCompiler:compile(node)
-	return self:_compileNode(node), self.params
+function PgCompiler:_compileOrderByNode(node)
+    assert(type(node) == "table", "node must be a table")
+
+    if node.__index == OrderFieldProxy then
+        return string.format("%s.%s", self.postgres:escape_identifier(node.table), self.postgres:escape_identifier(node.column))
+    end
+
+    if node.__index == OrderNode then
+        local fieldSql = self:_compileOrderByNode(node.fieldProxy)
+        local direction = OrderDirection[node.direction]
+        assert(direction ~= nil, "Unsupported order direction: " .. tostring(node.direction))
+
+        return string.format("%s %s", fieldSql, direction)
+    end
+
+    if node.__index == ConstantNode then
+        error("Unsupported node type in ORDER BY clause; ConstantNode is not supported due to its ambiguous nature")
+    end
+
+    error("Unsupported node type in ORDER BY clause")
+end
+
+--- @return string, { [number]: any }
+function PgCompiler:compileSelect(query)
+    -- SELECT * FROM [tableName]
+    -- WHERE ...
+    -- ORDER BY ...
+
+    local clauses = { Keywords.SELECT, Syntax.ALL_COLUMNS, Keywords.FROM, self.postgres:escape_identifier(query.modelClass.tableName) }
+
+    if query.nodes.where and #query.nodes.where > 0 then
+        table.insert(clauses, Keywords.WHERE)
+        for _, node in ipairs(query.nodes.where) do
+            table.insert(clauses, self:_compileWhereNode(node))
+        end
+    end
+
+    if query.nodes.orderBy and #query.nodes.orderBy > 0 then
+        table.insert(clauses, Keywords.ORDER_BY)
+        local orderClauses = {}
+        for _, node in ipairs(query.nodes.orderBy) do
+            table.insert(orderClauses, self:_compileOrderByNode(node))
+        end
+        table.insert(clauses, table.concat(orderClauses, ", "))
+    end
+
+    return table.concat(clauses, " "), self.params
 end
 
 return PgCompiler
