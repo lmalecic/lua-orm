@@ -13,7 +13,7 @@ end
 function Timestamp:formatDefault(value)
 	if type(value) == "string" then
         return "'" .. value .. "'"
-	elseif type(value == "table") then
+	elseif type(value) == "table" then
 		if value.class == CurrentTimestamp then
 			return tostring(CurrentTimestamp)
 		end
