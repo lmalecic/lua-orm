@@ -95,40 +95,4 @@ function Field:primaryKey(opts)
 	return self
 end
 
---- @param typeInstance Type
---- @param value any
-local function formatDefault(typeInstance, value)
-	if type(value) == "table" and value.__raw then
-		return value.value
-	end
-
-	return typeInstance:formatDefault(value)
-end
-
-function Field:toSql()
-	local sql = { '"' .. self.name .. '"', self.type:toSql() }
-
-	if self.autoIncrement then
-		table.insert(sql, "GENERATED " .. self.identityMode .. " AS IDENTITY")
-	end
-
-	if not self.nullable then
-		table.insert(sql, "NOT NULL")
-	end
-
-	if self.isUnique then
-		table.insert(sql, "UNIQUE")
-	end
-
-	if self.defaultValue ~= nil and not self.autoIncrement then
-		table.insert(sql, "DEFAULT " .. formatDefault(self.type, self.defaultValue))
-	end
-
-	if self.isPrimaryKey then
-		table.insert(sql, "PRIMARY KEY")
-	end
-
-	return table.concat(sql, " ")
-end
-
 return Field

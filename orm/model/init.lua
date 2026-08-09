@@ -20,7 +20,7 @@ return function(tableName, fields)
     local ModelClass = {}
     ModelClass.__index = ModelClass
     ModelClass.tableName = tableName
-    ModelClass.fields = fields
+    ModelClass.fields = fields or {}
     ModelClass.primaryKey = nil
 
     local fieldProxies, orderProxies = {}, {}

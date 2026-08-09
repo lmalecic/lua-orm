@@ -28,7 +28,20 @@ function Connection:connect()
     end
 
     self.connected = true
-	return true
+    return true
+end
+
+function Connection:disconnect()
+    if not self.connected then
+        return
+    end
+
+    local success, err = self.client:disconnect()
+    if not success then
+        error("Failed to disconnect from database: " .. tostring(err))
+    end
+
+    self.connected = false
 end
 
 --- @param sql string

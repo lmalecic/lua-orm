@@ -7,19 +7,21 @@ local LogicalNode = require("orm.query.node.logical")
 local UnaryNode = require("orm.query.node.unary")
 local OrderNode = require("orm.query.node.order")
 
-local PgCompiler = {}
-PgCompiler.__index = PgCompiler
+local Modifiers = {
+    PRIMARY_KEY = "PRIMARY KEY",
+    GENERATED_AS_IDENTITY = "GENERATED %s AS IDENTITY",
+    NOT_NULL = "NOT NULL",
+    UNIQUE = "UNIQUE",
+    DEFAULT = "DEFAULT %s"
+}
 
-local Keywords = {
+local Clauses = {
     SELECT = "SELECT",
     FROM = "FROM",
     WHERE = "WHERE",
-    ORDER_BY = "ORDER BY"
-}
-
-local OrderDirection = {
-    [OrderNode.Direction.ASC] = "ASC",
-    [OrderNode.Direction.DESC] = "DESC",
+    ORDER_BY = "ORDER BY",
+    CREATE_TABLE = "CREATE TABLE",
+    DROP_TABLE = "DROP TABLE",
 }
 
 local Syntax = {
@@ -40,6 +42,17 @@ local Operators = {
     [UnaryNode.Operators.IS_NOT_NULL] = "IS NOT NULL",
     [UnaryNode.Operators.NOT] = "NOT",
 }
+
+local OrderDirection = {
+    [OrderNode.Direction.ASC] = "ASC",
+    [OrderNode.Direction.DESC] = "DESC",
+}
+
+local PgCompiler = {}
+PgCompiler.__index = PgCompiler
+
+PgCompiler.MAINTENANCE_DATABASE = "postgres"
+PgCompiler.DATABASE_TABLE = "pg_database"
 
 function PgCompiler.new(postgres)
     local self = setmetatable({}, PgCompiler)
@@ -103,7 +116,8 @@ function PgCompiler:_compileOrderByNode(node)
     assert(type(node) == "table", "node must be a table")
 
     if node.__index == OrderFieldProxy then
-        return string.format("%s.%s", self.postgres:escape_identifier(node.table), self.postgres:escape_identifier(node.column))
+        return string.format("%s.%s", self.postgres:escape_identifier(node.table),
+            self.postgres:escape_identifier(node.column))
     end
 
     if node.__index == OrderNode then
@@ -121,31 +135,96 @@ function PgCompiler:_compileOrderByNode(node)
     error("Unsupported node type in ORDER BY clause")
 end
 
+function PgCompiler:compileType(typeInstance)
+    -- atm no multi-provider support, formatting is buried in the type instance
+    return typeInstance:toSql()
+end
+
+function PgCompiler:compileDefault(field)
+    -- atm no multi-provider support, formatting is buried in the type instance
+    if type(field.defaultValue) == "table" and field.defaultValue.__raw then
+        return field.defaultValue.value
+    end
+
+    return field.type:formatDefault(field.defaultValue)
+end
+
+function PgCompiler:compileColumn(field)
+    local fragments = { self.postgres:escape_identifier(field.name), self:compileType(field.type) }
+
+    if self.autoIncrement then
+        table.insert(fragments, string.format(Modifiers.GENERATED_AS_IDENTITY, field.identityMode))
+    end
+
+    if not self.nullable then
+        table.insert(fragments, Modifiers.NOT_NULL)
+    end
+
+    if self.isUnique then
+        table.insert(fragments, Modifiers.UNIQUE)
+    end
+
+    if self.defaultValue ~= nil and not self.autoIncrement then
+        table.insert(fragments, string.format(Modifiers.DEFAULT, self:compileDefault(field)))
+    end
+
+    if self.isPrimaryKey then
+        table.insert(fragments, Modifiers.PRIMARY_KEY)
+    end
+
+    return table.concat(fragments, " ")
+end
+
+--- @param model ModelClass
+--- @return string
+function PgCompiler:compileCreateTable(model)
+    local fragments = { Clauses.CREATE_TABLE, self.postgres:escape_identifier(model.tableName) }
+
+    if #model.fields > 0 then
+        table.insert(fragments, "(")
+
+        local columns = {}
+        for _, field in ipairs(model.fields) do
+            table.insert(columns, self:compileColumn(field))
+        end
+
+        table.insert(fragments, table.concat(columns, ", "))
+        table.insert(fragments, ")")
+    end
+
+    return table.concat(fragments, " ")
+end
+
+function PgCompiler:compileDropTable(model)
+    local fragments = { Clauses.DROP_TABLE, self.postgres:escape_identifier(model.tableName) }
+    return table.concat(fragments, " ")
+end
+
 --- @return string, { [number]: any }
 function PgCompiler:compileSelect(query)
     -- SELECT * FROM [tableName]
     -- WHERE ...
     -- ORDER BY ...
 
-    local clauses = { Keywords.SELECT, Syntax.ALL_COLUMNS, Keywords.FROM, self.postgres:escape_identifier(query.modelClass.tableName) }
+    local fragments = { Clauses.SELECT, Syntax.ALL_COLUMNS, Clauses.FROM, self.postgres:escape_identifier(query.modelClass.tableName) }
 
     if query.nodes.where and #query.nodes.where > 0 then
-        table.insert(clauses, Keywords.WHERE)
+        table.insert(fragments, Clauses.WHERE)
         for _, node in ipairs(query.nodes.where) do
-            table.insert(clauses, self:_compileWhereNode(node))
+            table.insert(fragments, self:_compileWhereNode(node))
         end
     end
 
     if query.nodes.orderBy and #query.nodes.orderBy > 0 then
-        table.insert(clauses, Keywords.ORDER_BY)
+        table.insert(fragments, Clauses.ORDER_BY)
         local orderClauses = {}
         for _, node in ipairs(query.nodes.orderBy) do
             table.insert(orderClauses, self:_compileOrderByNode(node))
         end
-        table.insert(clauses, table.concat(orderClauses, ", "))
+        table.insert(fragments, table.concat(orderClauses, ", "))
     end
 
-    return table.concat(clauses, " "), self.params
+    return table.concat(fragments, " "), self.params
 end
 
 return PgCompiler
