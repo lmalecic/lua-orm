@@ -22,6 +22,9 @@ local Clauses = {
     ORDER_BY = "ORDER BY",
     CREATE_TABLE = "CREATE TABLE",
     DROP_TABLE = "DROP TABLE",
+    BEGIN = "BEGIN",
+    COMMIT = "COMMIT",
+    ROLLBACK = "ROLLBACK",
 }
 
 local Syntax = {
@@ -59,6 +62,18 @@ function PgCompiler.new(postgres)
     self.params = {}
     self.postgres = postgres
     return self
+end
+
+function PgCompiler:compileBeginTransaction()
+    return Clauses.BEGIN
+end
+
+function PgCompiler:compileCommitTransaction()
+    return Clauses.COMMIT
+end
+
+function PgCompiler:compileRollbackTransaction()
+    return Clauses.ROLLBACK
 end
 
 function PgCompiler:_addParam(value)

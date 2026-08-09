@@ -27,14 +27,14 @@ function Context.new(config, schema)
     self.config = config or {}
     self.config.compiler = self.config.compiler or PgCompiler
 
-    self.connection = Connection.new(config)
+    self.connection = Connection.new(config, self.config.compiler)
     self._pgConnection = Connection.new({
         host = config.host,
         port = config.port,
         database = self.config.compiler.MAINTENANCE_DATABASE,
         user = config.user,
         password = config.password,
-    })
+    }, self.config.compiler)
     self.schema = schema
 
     local data = {}
@@ -64,7 +64,17 @@ function Context.new(config, schema)
 end
 
 function Context:getCompiler()
-	return self.config.compiler.new(self.connection.client)
+    return self.config.compiler.new(self.connection.client)
+end
+
+function Context:query(sql, ...)
+    return self.connection:query(sql, ...)
+end
+
+--- Runs callback atomically using this context's connection.
+--- @param callback fun()
+function Context:transaction(callback)
+    self.connection:transaction(callback)
 end
 
 function Context:saveChanges()

@@ -4,7 +4,7 @@ package.cpath = package.cpath .. ";/usr/local/lib/lua/5.1/?.dylib"
 
 local dbg = require("emmy_core")
 dbg.tcpListen("127.0.0.1", 9966)
-dbg.waitIDE()
+--dbg.waitIDE()
 
 local spec = require("orm.query.specification")
 local db = require("context")
@@ -17,3 +17,9 @@ db.data.test:where(function(test)
 end):orderBy(function(test)
     return test.created_at:asc(), test.id:desc()
 end):all()
+
+print("Transaction test:")
+db:transaction(function()
+    db:query("CREATE TABLE tranTest (id INT PRIMARY KEY, text TEXT NOT NULL)")
+    db:query("INSERT INTO tranTest (id, text) VALUES (1)")
+end) -- Should fail
