@@ -6,11 +6,9 @@ local OrderFieldProxy = require("orm.query.order-field-proxy")
 
 --- @class ModelClass
 --- @field tableName string
---- @field fields { [number]: Field }
---- @field primaryKey string
---- @field new fun(data: table): ModelClass
---- @field asProxy fun(): FieldProxy
---- @field asOrderProxy fun(): OrderFieldProxy
+--- @field fields Field[]
+--- @field primaryKey string?
+--- @field __index ModelClass?
 
 --- @param tableName string
 --- @param fieldSchema FieldDefinition[]
@@ -18,7 +16,7 @@ return function(tableName, fieldSchema)
     local ModelClass = {}
     ModelClass.__index = ModelClass
     ModelClass.tableName = tableName
-    ModelClass.fields = {}
+    ModelClass.fields = {} --[[ @as Field[] ]]
     ModelClass.primaryKey = nil
 
     local fieldProxies, orderProxies = {}, {}
@@ -47,19 +45,21 @@ return function(tableName, fieldSchema)
 
         data = data or {}
 
-        for name, field in pairs(ModelClass.fields) do
-            if data[name] ~= nil then
-                self._attributes[name] = data[name]
-            elseif field.defaultValue ~= nil then
-                if type(field.defaultValue) == "table" then
-                    self._attributes[name] = tostring(field.defaultValue) -- TODO: Check if CurrentTimestamp would
-                elseif type(field.defaultValue) == "function" then
-                    self._attributes[name] = field.defaultValue()
+        for _, field in ipairs(ModelClass.fields) do
+            if data[field.name] ~= nil then
+                self._attributes[field.name] = data[field.name]
+            elseif field.default ~= nil then
+                if type(field.default) == "table" then
+                    self._attributes[field.name] = tostring(field.default) -- TODO: Check if CurrentTimestamp would
+                elseif type(field.default) == "function" then
+                    self._attributes[field.name] = field.default()
                 else
-                    self._attributes[name] = field.defaultValue
+                    self._attributes[field.name] = field.default
                 end
             end
         end
+
+        return self
     end
 
     function ModelClass.asProxy()
