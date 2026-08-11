@@ -14,7 +14,8 @@ local Modifiers = {
     GENERATED_AS_IDENTITY = "GENERATED %s AS IDENTITY",
     NOT_NULL = "NOT NULL",
     UNIQUE = "UNIQUE",
-    DEFAULT = "DEFAULT %s"
+    DEFAULT = "DEFAULT %s",
+    REFERENCES = "REFERENCES %s(%s)"
 }
 
 local Clauses = {
@@ -252,6 +253,7 @@ function PgCompiler:compileColumn(field)
     local fragments = { self.postgres:escape_identifier(field.name), self:compileType(field.type) }
 
     if field.autoIncrement then
+        assert(field.identityMode, "Auto-increment fields must have an identity mode in PostgreSQL")
         table.insert(fragments, Modifiers.GENERATED_AS_IDENTITY:format(field.identityMode))
     end
 
@@ -270,6 +272,12 @@ function PgCompiler:compileColumn(field)
 
     if field.primaryKey then
         table.insert(fragments, Modifiers.PRIMARY_KEY)
+    end
+
+    if field.foreignKey then
+        table.insert(fragments, Modifiers.REFERENCES:format(
+            self.postgres:escape_identifier(field.foreignKey.referenceTable),
+            self.postgres:escape_identifier(field.foreignKey.referenceColumn)))
     end
 
     return table.concat(fragments, " ")

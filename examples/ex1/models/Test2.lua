@@ -7,7 +7,8 @@ local Test2 = Model("test2", {
 	{ "char",           Types.Char(20) },
 	{ "varchar",        Types.Varchar(50) },
 	{ "decimal",        Types.Decimal(),    Constraint.Default(67694142) },
-	{ "float",          Types.Float },
+    { "float",   Types.Float },
+	{ "test_id", Types.Int, Constraint.ForeignKey("test1", "id") }
 })
 
 return Test2

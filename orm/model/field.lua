@@ -1,6 +1,10 @@
 local Type = require("orm.model.types.type")
 local Constraint = require("orm.model.constraint")
 
+--- @class ForeignKey
+--- @field referenceTable string
+--- @field referenceColumn string
+
 --- @class Field
 --- @field name string
 --- @field type Type
@@ -10,6 +14,7 @@ local Constraint = require("orm.model.constraint")
 --- @field primaryKey boolean
 --- @field autoIncrement boolean
 --- @field identityMode IdentityMode?
+--- @field foreignKey ForeignKey?
 local Field = {}
 Field.__index = Field
 
@@ -32,6 +37,7 @@ function Field.new(definition)
         unique = false,
         default = nil,
         primaryKey = false,
+        foreignKey = nil,
         autoIncrement = false,
         identityMode = nil,
 	}, Field)
@@ -44,6 +50,7 @@ function Field.new(definition)
             self.primaryKey = true
         elseif constraint.kind == Constraint.Kinds.AUTO_INCREMENT then
             assert(self.default == nil, "Auto-increment fields cannot have a default value")
+            assert(self.foreignKey == nil, "Auto-increment fields cannot have a foreign key constraint, idk why you'd ever want that, this is an anti-pattern.")
             self.autoIncrement = true
             self.identityMode = constraint.identityMode
         elseif constraint.kind == Constraint.Kinds.NOT_NULL then
@@ -53,6 +60,12 @@ function Field.new(definition)
         elseif constraint.kind == Constraint.Kinds.DEFAULT then
             assert(self.autoIncrement == false, "Default value is not supported for auto-increment fields")
             self.default = constraint.value
+        elseif constraint.kind == Constraint.Kinds.FOREIGN_KEY then
+            assert(self.autoIncrement == false, "Foreign key fields cannot be auto-increment fields")
+            self.foreignKey = {
+                referenceTable = constraint.referenceTable,
+                referenceColumn = constraint.referenceColumn,
+            }
         end
     end
 

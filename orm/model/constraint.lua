@@ -15,12 +15,19 @@
 --- @field kind "DEFAULT"
 --- @field value any
 
+--- @class ForeignKeyConstraint
+--- @field kind "FOREIGN_KEY"
+--- @field referenceTable string
+--- @field referenceColumn string
+
+
 --- @alias Constraint
 --- | PrimaryKeyConstraint
 --- | NotNullConstraint
 --- | UniqueConstraint
 --- | AutoIncrementConstraint
 --- | DefaultConstraint
+--- | ForeignKeyConstraint
 
 local Constraint = {}
 
@@ -30,7 +37,8 @@ Constraint.Kinds = {
     AUTO_INCREMENT = "AUTO_INCREMENT",
     NOT_NULL = "NOT_NULL",
     UNIQUE = "UNIQUE",
-    DEFAULT = "DEFAULT"
+    DEFAULT = "DEFAULT",
+    FOREIGN_KEY = "FOREIGN_KEY"
 }
 
 --- @enum IdentityMode
@@ -56,6 +64,13 @@ end
 --- @return DefaultConstraint
 function Constraint.Default(value)
     return { kind = Constraint.Kinds.DEFAULT, value = value }
+end
+
+--- @param referenceTable string
+--- @param referenceColumn string
+--- @return ForeignKeyConstraint
+function Constraint.ForeignKey(referenceTable, referenceColumn)
+    return { kind = Constraint.Kinds.FOREIGN_KEY, referenceTable = referenceTable, referenceColumn = referenceColumn }
 end
 
 return Constraint
