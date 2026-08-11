@@ -38,11 +38,11 @@ function Query:orderBy(expressionFunc)
 end
 
 function Query:all()
-    -- compile
     local compiler = self.context:getCompiler()
     local sql, params = compiler:compileSelect(self)
+
     print(sql, params)
-    -- execute on connection
+
     local result = self.context:query(sql, unpack(params))
     local entities = {}
 
@@ -54,7 +54,11 @@ function Query:all()
 end
 
 function Query:first()
-    -- compile
+    local compiler = self.context:getCompiler()
+    local sql, params = compiler:compileSelectFirst(self)
+    local result = self.context:query(sql, unpack(params))
+
+    return result and self.modelClass.new(result[1])
 end
 
 return Query

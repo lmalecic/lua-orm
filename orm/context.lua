@@ -89,7 +89,7 @@ function Context:ensureDatabase()
         SELECT EXISTS (
             SELECT 1 FROM %s
             WHERE datname = $1
-        )
+        );
     ]=], self.config.compiler.DATABASE_TABLE), self.config.database)
 
     local exists = result and result[1] and result[1].exists

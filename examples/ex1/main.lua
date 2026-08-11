@@ -14,6 +14,9 @@ local db = require("context")
 local tests = db.data.test:all()
 print(tests[1].id, tests[1].text)
 
+local test = db.data.test:first()
+print(test.id, test.text)
+
 -- db.data.test:where(function(test)
 --     return spec.and_(test.id:equals(1), spec.or_(test.text:equals("BABA"), test.char:equals("brah")))
 -- end):orderBy(function(test)

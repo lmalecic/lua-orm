@@ -31,6 +31,8 @@ local Clauses = {
     BEGIN = "BEGIN;",
     COMMIT = "COMMIT;",
     ROLLBACK = "ROLLBACK;",
+
+    FIRST = "LIMIT 1",
 }
 
 local Syntax = {
@@ -292,14 +294,10 @@ function PgCompiler:compileColumn(field)
     return table.concat(fragments, " ")
 end
 
---- @return string, { [number]: any }
+--- @return string, any[]
 function PgCompiler:compileSelect(query)
-    -- SELECT * FROM [tableName]
-    -- WHERE ...
-    -- ORDER BY ...
-
     local fragments = { Clauses.SELECT, Syntax.ALL_COLUMNS, Clauses.FROM, self.postgres:escape_identifier(query
-    .modelClass.tableName) }
+        .modelClass.tableName) }
 
     if query.nodes.where and #query.nodes.where > 0 then
         table.insert(fragments, Clauses.WHERE)
@@ -318,6 +316,12 @@ function PgCompiler:compileSelect(query)
     end
 
     return table.concat(fragments, " "), self.params
+end
+
+--- @return string, any[]
+function PgCompiler:compileSelectFirst(query)
+    local sql, params = self:compileSelect(query)
+    return sql .. " " .. Clauses.FIRST, params
 end
 
 -- Migrations

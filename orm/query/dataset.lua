@@ -27,6 +27,10 @@ function DataSet:all()
     return Query.new(self.modelClass, self.context):all()
 end
 
+function DataSet:first()
+    return Query.new(self.modelClass, self.context):first()
+end
+
 function DataSet:find(pkValue)
     return Query.new(self.modelClass, self.context):where(function(e)
         assert(self.modelClass.primaryKey, self.modelClass.tableName .. " model does not have a primary key; find() can only be called on a model with a primary key")
