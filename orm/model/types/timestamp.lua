@@ -15,9 +15,7 @@ function Timestamp:formatDefault(value)
 	if type(value) == "string" then
         return "'" .. value .. "'"
 	elseif type(value) == "table" then
-		if value.class == CurrentTimestamp then
-			return tostring(CurrentTimestamp)
-		end
+		return value:format()
 	end
 	error("TIMESTAMP default must be a string literal, a CurrentTimestamp instance or Field.raw(...)")
 end

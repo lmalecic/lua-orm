@@ -73,7 +73,6 @@ function Context:query(sql, ...)
 end
 
 --- Runs callback atomically using this context's connection.
---- TODO: Switch to pure sql instead of sending a BEGIN query, executing the callback, and COMMIT query.
 --- @param callback fun()
 function Context:transaction(callback)
     self.connection:transaction(callback)

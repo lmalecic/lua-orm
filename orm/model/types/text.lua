@@ -10,6 +10,7 @@ function Text.new()
 	return setmetatable(Type.new("TEXT"), Text) --[[@as Text]]
 end
 
+--- @param value string
 function Text:formatDefault(value)
 	assert(type(value) == "string", "TEXT default must be a string")
 	return "'" .. value:gsub("'", "''") .. "'"

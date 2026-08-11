@@ -15,9 +15,7 @@ function TimestampTz:formatDefault(value)
 	if type(value) == "string" then
         return "'" .. value .. "'"
     elseif type(value) == "table" then
-		if value.class == CurrentTimestamp then
-			return tostring(CurrentTimestamp)
-		end
+		return value:format()
 	end
 	error("TIMESTAMPTZ default must be a string literal or Field.raw(...)")
 end

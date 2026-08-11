@@ -18,7 +18,7 @@ function CurrentTimestamp.new(precision)
     return self
 end
 
-function CurrentTimestamp:__tostring()
+function CurrentTimestamp:format()
     if self.precision then
     	return string.format("CURRENT_TIMESTAMP(%d)", self.precision)
     end

@@ -248,10 +248,11 @@ function PgCompiler:compileType(typeInstance)
     return typeInstance:toSql()
 end
 
+--- @param field Field
 function PgCompiler:compileDefault(field)
     -- atm no multi-provider support, formatting is buried in the type instance
     if type(field.default) ~= "table" then
-        return field.default
+        return self.postgres:escape_literal(field.default)
     end
 
     return field.type:formatDefault(field.default)

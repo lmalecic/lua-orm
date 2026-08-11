@@ -4,19 +4,21 @@ package.cpath = package.cpath .. ";/usr/local/lib/lua/5.1/?.dylib"
 
 local dbg = require("emmy_core")
 dbg.tcpListen("127.0.0.1", 9966)
---dbg.waitIDE()
+-- dbg.waitIDE()
 
 local spec = require("orm.query.specification")
 local db = require("context")
 
-local testSet = db.data.test
-local anotherTestSet = db.data.test2
+-- require("orm.migrations").executeUp(db, require("migrations.0-initial-migration"))
 
-db.data.test:where(function(test)
-    return spec.and_(test.id:equals(1), spec.or_(test.text:equals("BABA"), test.char:equals("brah")))
-end):orderBy(function(test)
-    return test.created_at:asc(), test.id:desc()
-end):all()
+local tests = db.data.test:all()
+print(tests[1].id, tests[1].text)
+
+-- db.data.test:where(function(test)
+--     return spec.and_(test.id:equals(1), spec.or_(test.text:equals("BABA"), test.char:equals("brah")))
+-- end):orderBy(function(test)
+--     return test.created_at:asc(), test.id:desc()
+-- end):all()
 
 -- print("Transaction test:")
 -- db:transaction(function()
@@ -24,6 +26,6 @@ end):all()
 --     db:query("INSERT INTO tranTest (id) VALUES (1)")
 -- end) -- Should fail because tranTest.text has not null constraint
 
-require("orm.migrations").executeUp(db, require("migrations.0-initial-migration"))
+-- require("orm.migrations").executeUp(db, require("migrations.0-initial-migration"))
 -- require("orm.migrations").executeUp(db, require("migrations.1-migration"))
 -- require("orm.migrations").executeUp(db, require("migrations.2-migration"))

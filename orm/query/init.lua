@@ -43,6 +43,14 @@ function Query:all()
     local sql, params = compiler:compileSelect(self)
     print(sql, params)
     -- execute on connection
+    local result = self.context:query(sql, unpack(params))
+    local entities = {}
+
+    for _, row in ipairs(result) do
+        table.insert(entities, self.modelClass.new(row))
+    end
+
+    return entities
 end
 
 function Query:first()
