@@ -13,6 +13,7 @@ local Varchar = setmetatable({}, {
 })
 Varchar.__index = Varchar
 Varchar.class = Varchar
+Varchar.super = Type
 
 --- @param length number
 --- @return Varchar

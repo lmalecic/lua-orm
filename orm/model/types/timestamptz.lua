@@ -5,6 +5,7 @@ local CurrentTimestamp = require("orm.model.expressions.current-timestamp")
 local TimestampTz = setmetatable({}, { __index = Type })
 TimestampTz.__index = TimestampTz
 TimestampTz.class = TimestampTz
+TimestampTz.super = Type
 
 function TimestampTz.new()
 	return setmetatable(Type.new("TIMESTAMPTZ"), TimestampTz) --[[@as TimestampTz]]

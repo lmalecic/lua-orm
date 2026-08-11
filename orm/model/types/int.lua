@@ -4,6 +4,7 @@ local Type = require("orm.model.types.type")
 local Int = setmetatable({}, { __index = Type })
 Int.__index = Int
 Int.class = Int
+Int.super = Type
 
 Int.MIN = -2 ^ 31
 Int.MAX = 2 ^ 31 - 1

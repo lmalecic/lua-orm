@@ -7,6 +7,8 @@ local LogicalNode = require("orm.query.node.logical")
 local UnaryNode = require("orm.query.node.unary")
 local OrderNode = require("orm.query.node.order")
 
+local Alter = require("orm.migrations.alter")
+
 local Modifiers = {
     PRIMARY_KEY = "PRIMARY KEY",
     GENERATED_AS_IDENTITY = "GENERATED %s AS IDENTITY",
@@ -20,8 +22,10 @@ local Clauses = {
     FROM = "FROM",
     WHERE = "WHERE",
     ORDER_BY = "ORDER BY",
+
     CREATE_TABLE = "CREATE TABLE",
     DROP_TABLE = "DROP TABLE",
+
     BEGIN = "BEGIN",
     COMMIT = "COMMIT",
     ROLLBACK = "ROLLBACK",
@@ -64,6 +68,8 @@ function PgCompiler.new(postgres)
     return self
 end
 
+-- Transactions
+
 function PgCompiler:compileBeginTransaction()
     return Clauses.BEGIN
 end
@@ -74,6 +80,58 @@ end
 
 function PgCompiler:compileRollbackTransaction()
     return Clauses.ROLLBACK
+end
+
+-- Tables
+
+--- @param tableName string
+--- @param fields Field[]
+--- @return string
+function PgCompiler:compileCreateTable(tableName, fields)
+    local fragments = { Clauses.CREATE_TABLE, self.postgres:escape_identifier(tableName) }
+
+    if #fields > 0 then
+        table.insert(fragments, "(")
+
+        local columns = {}
+        for _, field in ipairs(fields) do
+            table.insert(columns, self:compileColumn(field))
+        end
+
+        table.insert(fragments, table.concat(columns, ", "))
+        table.insert(fragments, ")")
+    end
+
+    return table.concat(fragments, " ")
+end
+
+function PgCompiler:compileDropTable(model)
+    local fragments = { Clauses.DROP_TABLE, self.postgres:escape_identifier(model.tableName) }
+    return table.concat(fragments, " ")
+end
+
+function PgCompiler:compileAlterTable(tableName, alterations)
+    local fragments = { Clauses.ALTER_TABLE, self.postgres:escape_identifier(tableName) }
+
+    for _, alteration in ipairs(alterations) do
+        table.insert(fragments, self:compileAlteration(alteration))
+    end
+
+    return table.concat(fragments, " ")
+end
+
+function PgCompiler:compileAlteration(alteration)
+    local mt = getmetatable(alteration)
+
+    if mt == Alter.AddColumn then
+
+    elseif mt == Alter.DropColumn then
+
+    elseif mt == Alter.RenameColumn then
+
+    end
+
+    error("Unsupported alteration type!")
 end
 
 function PgCompiler:_addParam(value)
@@ -167,51 +225,26 @@ end
 function PgCompiler:compileColumn(field)
     local fragments = { self.postgres:escape_identifier(field.name), self:compileType(field.type) }
 
-    if self.autoIncrement then
+    if field.autoIncrement then
         table.insert(fragments, string.format(Modifiers.GENERATED_AS_IDENTITY, field.identityMode))
     end
 
-    if not self.nullable then
+    if not field.nullable then
         table.insert(fragments, Modifiers.NOT_NULL)
     end
 
-    if self.isUnique then
+    if field.isUnique then
         table.insert(fragments, Modifiers.UNIQUE)
     end
 
-    if self.defaultValue ~= nil and not self.autoIncrement then
+    if field.defaultValue ~= nil and not field.autoIncrement then
         table.insert(fragments, string.format(Modifiers.DEFAULT, self:compileDefault(field)))
     end
 
-    if self.isPrimaryKey then
+    if field.isPrimaryKey then
         table.insert(fragments, Modifiers.PRIMARY_KEY)
     end
 
-    return table.concat(fragments, " ")
-end
-
---- @param model ModelClass
---- @return string
-function PgCompiler:compileCreateTable(model)
-    local fragments = { Clauses.CREATE_TABLE, self.postgres:escape_identifier(model.tableName) }
-
-    if #model.fields > 0 then
-        table.insert(fragments, "(")
-
-        local columns = {}
-        for _, field in ipairs(model.fields) do
-            table.insert(columns, self:compileColumn(field))
-        end
-
-        table.insert(fragments, table.concat(columns, ", "))
-        table.insert(fragments, ")")
-    end
-
-    return table.concat(fragments, " ")
-end
-
-function PgCompiler:compileDropTable(model)
-    local fragments = { Clauses.DROP_TABLE, self.postgres:escape_identifier(model.tableName) }
     return table.concat(fragments, " ")
 end
 

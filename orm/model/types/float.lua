@@ -4,6 +4,7 @@ local Type = require("orm.model.types.type")
 local Float = setmetatable({}, { __index = Type })
 Float.__index = Float
 Float.class = Float
+Float.super = Type
 
 function Float.new()
 	return setmetatable(Type.new("FLOAT"), Float) --[[@as Float]]

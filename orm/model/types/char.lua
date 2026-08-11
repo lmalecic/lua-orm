@@ -13,6 +13,7 @@ local Char = setmetatable({}, {
 })
 Char.__index = Char
 Char.class = Char
+Char.super = Type
 
 --- @param length number
 --- @return Char

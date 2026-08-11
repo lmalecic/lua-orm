@@ -25,7 +25,23 @@ end
 --- @param value any
 --- @return string
 function Type:formatDefault(value)
-	error(self.name .. " does not support default values")
+    error(self.name .. " does not support default values")
+end
+
+---@param obj any
+---@return boolean
+function Type.isInstance(obj)
+    if type(obj) ~= "table" or type(obj.class) ~= "table" then
+        return false
+    end
+    local class = obj.class
+    while class do
+        if class == Type then
+            return true
+        end
+        class = class.super
+    end
+    return false
 end
 
 return Type

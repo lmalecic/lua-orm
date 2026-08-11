@@ -15,6 +15,7 @@ local Decimal = setmetatable({}, {
 })
 Decimal.__index = Decimal
 Decimal.class = Decimal
+Decimal.super = Type
 
 --- @param precision number?
 --- @param scale number?

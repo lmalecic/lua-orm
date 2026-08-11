@@ -1,14 +1,13 @@
 local Model = require("orm.model")
-local Field = require("orm.model.field")
 local Types = require("orm.model.types")
+local Constraint = require("orm.model.constraint")
 
 local Test2 = Model("test2", {
-	Field("id", Types.Int):primaryKey(),
-	Field("char", Types.Char(20)),
-	Field("varchar", Types.Varchar(50)),
-	Field("decimal", Types.Decimal())
-		:default(67694142),
-	Field("float", Types.Float),
+    { "id",             Types.Int,          Constraint.PrimaryKey },
+	{ "char",           Types.Char(20) },
+	{ "varchar",        Types.Varchar(50) },
+	{ "decimal",        Types.Decimal(),    Constraint.Default(67694142) },
+	{ "float",          Types.Float },
 })
 
 return Test2

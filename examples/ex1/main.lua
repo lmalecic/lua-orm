@@ -21,5 +21,5 @@ end):all()
 print("Transaction test:")
 db:transaction(function()
     db:query("CREATE TABLE tranTest (id INT PRIMARY KEY, text TEXT NOT NULL)")
-    db:query("INSERT INTO tranTest (id, text) VALUES (1)")
-end) -- Should fail
+    db:query("INSERT INTO tranTest (id) VALUES (1)")
+end) -- Should fail because tranTest.text has not null constraint

@@ -4,6 +4,7 @@ local Type = require("orm.model.types.type")
 local Text = setmetatable({}, { __index = Type })
 Text.__index = Text
 Text.class = Text
+Text.super = Type
 
 function Text.new()
 	return setmetatable(Type.new("TEXT"), Text) --[[@as Text]]

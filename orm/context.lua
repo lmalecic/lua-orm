@@ -43,7 +43,7 @@ function Context.new(config, schema)
     for _, model in ipairs(schema) do
         assert(not data[model.tableName], "Model " .. model.tableName .. " already exists")
         modelClasses[model.tableName] = model
-        print(self:getCompiler():compileCreateTable(model))
+        print(self:getCompiler():compileCreateTable(model.tableName, model.fields))
     end
 
     self.data = setmetatable(data, {

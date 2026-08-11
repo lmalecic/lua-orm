@@ -1,10 +1,8 @@
+local Field = require("orm.model.field")
+
 local EntityProxy = require("orm.query.entity-proxy")
 local FieldProxy = require("orm.query.field-proxy")
 local OrderFieldProxy = require("orm.query.order-field-proxy")
-
-local function isSqlExpression(value)
-
-end
 
 --- @class ModelClass
 --- @field tableName string
@@ -15,23 +13,28 @@ end
 --- @field asOrderProxy fun(): OrderFieldProxy
 
 --- @param tableName string
---- @param fields { [number]: Field }
-return function(tableName, fields)
+--- @param fieldSchema FieldDefinition[]
+return function(tableName, fieldSchema)
     local ModelClass = {}
     ModelClass.__index = ModelClass
     ModelClass.tableName = tableName
-    ModelClass.fields = fields or {}
+    ModelClass.fields = {}
     ModelClass.primaryKey = nil
 
     local fieldProxies, orderProxies = {}, {}
 
-    for _, field in ipairs(fields) do
-        ModelClass.fields[field.name] = field
+    for _, definition in ipairs(fieldSchema) do
+        local field = Field.new(definition)
+
+        table.insert(ModelClass.fields, field)
+
         fieldProxies[field.name] = FieldProxy.new(tableName, field.name)
         orderProxies[field.name] = OrderFieldProxy.new(tableName, field.name)
 
-        if field.isPrimaryKey then
+        if field.primaryKey and ModelClass.primaryKey == nil then
             ModelClass.primaryKey = field.name
+        elseif field.primaryKey then
+            error("A model can only have one primary key field")
         end
     end
 
