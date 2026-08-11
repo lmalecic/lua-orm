@@ -43,6 +43,7 @@ function Field.new(definition)
         if constraint.kind == Constraint.Kinds.PRIMARY_KEY then
             self.primaryKey = true
         elseif constraint.kind == Constraint.Kinds.AUTO_INCREMENT then
+            assert(self.default == nil, "Auto-increment fields cannot have a default value")
             self.autoIncrement = true
             self.identityMode = constraint.identityMode
         elseif constraint.kind == Constraint.Kinds.NOT_NULL then
@@ -50,6 +51,7 @@ function Field.new(definition)
         elseif constraint.kind == Constraint.Kinds.UNIQUE then
             self.unique = true
         elseif constraint.kind == Constraint.Kinds.DEFAULT then
+            assert(self.autoIncrement == false, "Default value is not supported for auto-increment fields")
             self.default = constraint.value
         end
     end

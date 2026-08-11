@@ -23,16 +23,31 @@ local Clauses = {
     WHERE = "WHERE",
     ORDER_BY = "ORDER BY",
 
-    CREATE_TABLE = "CREATE TABLE",
-    DROP_TABLE = "DROP TABLE",
+    CREATE_TABLE = "CREATE TABLE %s (%s);",
+    DROP_TABLE = "DROP TABLE %s;",
+    ALTER_TABLE = "ALTER TABLE %s %s;",
 
-    BEGIN = "BEGIN",
-    COMMIT = "COMMIT",
-    ROLLBACK = "ROLLBACK",
+    BEGIN = "BEGIN;",
+    COMMIT = "COMMIT;",
+    ROLLBACK = "ROLLBACK;",
 }
 
 local Syntax = {
     ALL_COLUMNS = "*"
+}
+
+local Alterations = {
+    ADD_COLUMN = "ADD COLUMN %s",
+    DROP_COLUMN = "DROP COLUMN %s",
+    RENAME_COLUMN = "RENAME COLUMN %s TO %s",
+
+    ADD_CONSTRAINT = "ADD CONSTRAINT %s %s (%s)",
+    DROP_CONSTRAINT = "DROP CONSTRAINT %s",
+}
+
+local ConstraintTypes = {
+    [Alter.ConstraintTypes.PRIMARY_KEY] = "PRIMARY KEY",
+    [Alter.ConstraintTypes.UNIQUE] = "UNIQUE",
 }
 
 local Operators = {
@@ -53,6 +68,11 @@ local Operators = {
 local OrderDirection = {
     [OrderNode.Direction.ASC] = "ASC",
     [OrderNode.Direction.DESC] = "DESC",
+}
+
+local NameFormats = {
+    PRIMARY_KEY = "%s_pkey",
+    UNIQUE_KEY = "%s_%s_key",
 }
 
 local PgCompiler = {}
@@ -88,47 +108,52 @@ end
 --- @param fields Field[]
 --- @return string
 function PgCompiler:compileCreateTable(tableName, fields)
-    local fragments = { Clauses.CREATE_TABLE, self.postgres:escape_identifier(tableName) }
+    local columns = {}
 
     if #fields > 0 then
-        table.insert(fragments, "(")
-
-        local columns = {}
         for _, field in ipairs(fields) do
+            print(field.name, field.autoIncrement)
             table.insert(columns, self:compileColumn(field))
         end
-
-        table.insert(fragments, table.concat(columns, ", "))
-        table.insert(fragments, ")")
     end
 
-    return table.concat(fragments, " ")
+    return Clauses.CREATE_TABLE:format(self.postgres:escape_identifier(tableName), table.concat(columns, ", "))
 end
 
 function PgCompiler:compileDropTable(model)
-    local fragments = { Clauses.DROP_TABLE, self.postgres:escape_identifier(model.tableName) }
-    return table.concat(fragments, " ")
+    return Clauses.DROP_TABLE:format(self.postgres:escape_identifier(model.tableName))
 end
 
 function PgCompiler:compileAlterTable(tableName, alterations)
-    local fragments = { Clauses.ALTER_TABLE, self.postgres:escape_identifier(tableName) }
+    local alters = {}
 
     for _, alteration in ipairs(alterations) do
-        table.insert(fragments, self:compileAlteration(alteration))
+        table.insert(alters, self:compileAlteration(alteration))
     end
 
-    return table.concat(fragments, " ")
+    return Clauses.ALTER_TABLE:format(self.postgres:escape_identifier(tableName), table.concat(alters, ", "))
 end
 
+--- @param alteration Alteration
+function PgCompiler:compileAlterationConstraint(alteration)
+    local type = ConstraintTypes[alteration.type]
+    assert(type, "Unsupported constraint type: " .. tostring(alteration.type))
+
+    -- TODO: Add Foreign Key, this one is a special case
+
+    return type
+end
+
+--- @param alteration Alteration
 function PgCompiler:compileAlteration(alteration)
-    local mt = getmetatable(alteration)
-
-    if mt == Alter.AddColumn then
-
-    elseif mt == Alter.DropColumn then
-
-    elseif mt == Alter.RenameColumn then
-
+    if alteration.kind == Alter.Kinds.ADD_COLUMN then
+        return Alterations.ADD_COLUMN:format(self:compileColumn(alteration.field))
+    elseif alteration.kind == Alter.Kinds.DROP_COLUMN then
+        return Alterations.DROP_COLUMN:format(self.postgres:escape_identifier(alteration.name))
+    elseif alteration.kind == Alter.Kinds.ADD_CONSTRAINT then
+        return Alterations.ADD_CONSTRAINT:format(self.postgres:escape_identifier(alteration.name), self:compileAlterationConstraint(alteration), self.postgres:escape_identifier(alteration.columnName))
+    elseif alteration.kind == Alter.Kinds.DROP_CONSTRAINT then
+        return Alterations.DROP_CONSTRAINT:format(self.postgres:escape_identifier(alteration.name))
     end
 
     error("Unsupported alteration type!")
@@ -215,33 +240,35 @@ end
 
 function PgCompiler:compileDefault(field)
     -- atm no multi-provider support, formatting is buried in the type instance
-    if type(field.defaultValue) == "table" and field.defaultValue.__raw then
-        return field.defaultValue.value
+    if type(field.default) ~= "table" then
+        return field.default
     end
 
-    return field.type:formatDefault(field.defaultValue)
+    return field.type:formatDefault(field.default)
 end
 
+--- @param field Field
 function PgCompiler:compileColumn(field)
     local fragments = { self.postgres:escape_identifier(field.name), self:compileType(field.type) }
 
     if field.autoIncrement then
-        table.insert(fragments, string.format(Modifiers.GENERATED_AS_IDENTITY, field.identityMode))
+        table.insert(fragments, Modifiers.GENERATED_AS_IDENTITY:format(field.identityMode))
     end
 
     if not field.nullable then
         table.insert(fragments, Modifiers.NOT_NULL)
     end
 
-    if field.isUnique then
+    if field.unique then
         table.insert(fragments, Modifiers.UNIQUE)
     end
 
-    if field.defaultValue ~= nil and not field.autoIncrement then
-        table.insert(fragments, string.format(Modifiers.DEFAULT, self:compileDefault(field)))
+    if field.default ~= nil and not field.autoIncrement then
+        print(field.default)
+        table.insert(fragments, Modifiers.DEFAULT:format(self:compileDefault(field)))
     end
 
-    if field.isPrimaryKey then
+    if field.primaryKey then
         table.insert(fragments, Modifiers.PRIMARY_KEY)
     end
 
@@ -254,7 +281,8 @@ function PgCompiler:compileSelect(query)
     -- WHERE ...
     -- ORDER BY ...
 
-    local fragments = { Clauses.SELECT, Syntax.ALL_COLUMNS, Clauses.FROM, self.postgres:escape_identifier(query.modelClass.tableName) }
+    local fragments = { Clauses.SELECT, Syntax.ALL_COLUMNS, Clauses.FROM, self.postgres:escape_identifier(query
+    .modelClass.tableName) }
 
     if query.nodes.where and #query.nodes.where > 0 then
         table.insert(fragments, Clauses.WHERE)
@@ -273,6 +301,25 @@ function PgCompiler:compileSelect(query)
     end
 
     return table.concat(fragments, " "), self.params
+end
+
+-- Migrations
+
+--- @param query string[]
+function PgCompiler:compileMigration(query)
+    return table.concat(query, "; ") .. ";"
+end
+
+function PgCompiler:compileDropConstraint(name)
+    return Alterations.DROP_CONSTRAINT:format(self.postgres:escape_identifier(name))
+end
+
+function PgCompiler:getPrimaryKeyConstraintName(tableName)
+    return NameFormats.PRIMARY_KEY:format(tableName)
+end
+
+function PgCompiler:getUniqueKeyConstraintName(tableName, columnName)
+    return NameFormats.UNIQUE_KEY:format(tableName, columnName)
 end
 
 return PgCompiler

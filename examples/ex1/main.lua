@@ -18,8 +18,12 @@ end):orderBy(function(test)
     return test.created_at:asc(), test.id:desc()
 end):all()
 
-print("Transaction test:")
-db:transaction(function()
-    db:query("CREATE TABLE tranTest (id INT PRIMARY KEY, text TEXT NOT NULL)")
-    db:query("INSERT INTO tranTest (id) VALUES (1)")
-end) -- Should fail because tranTest.text has not null constraint
+-- print("Transaction test:")
+-- db:transaction(function()
+--     db:query("CREATE TABLE tranTest (id INT PRIMARY KEY, text TEXT NOT NULL)")
+--     db:query("INSERT INTO tranTest (id) VALUES (1)")
+-- end) -- Should fail because tranTest.text has not null constraint
+
+-- require("orm.migrations").executeUp(db, require("migrations.0-initial-migration"))
+-- require("orm.migrations").executeUp(db, require("migrations.1-migration"))
+require("orm.migrations").executeUp(db, require("migrations.2-migration"))

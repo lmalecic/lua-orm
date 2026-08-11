@@ -55,6 +55,7 @@ end
 --- @param sql string
 --- @return table[]
 function Connection:query(sql, ...)
+    print("Attempting to query:", sql)
     self:connect()
 
     local result, err = self.client:query(sql, ...)
@@ -69,6 +70,7 @@ local function traceback(err)
     return debug.traceback(tostring(err), 2)
 end
 
+--- TODO: Switch to pure sql instead of sending a BEGIN query, executing the callback, and COMMIT query.
 --- @param callback fun()
 function Connection:transaction(callback)
     assert(type(callback) == "function", "Transaction callback must be a function")

@@ -1,8 +1,9 @@
 local Connection = require("orm.connection")
 local DataSet = require("orm.query.dataset")
 local PgCompiler = require("orm.query.compiler.pg")
+local Migrations = require("orm.migrations")
 
---- @class Schema: { [number]: Field } }
+--- @alias Schema ModelClass[]
 
 --- @class DbConfig
 --- @field host string
@@ -72,6 +73,7 @@ function Context:query(sql, ...)
 end
 
 --- Runs callback atomically using this context's connection.
+--- TODO: Switch to pure sql instead of sending a BEGIN query, executing the callback, and COMMIT query.
 --- @param callback fun()
 function Context:transaction(callback)
     self.connection:transaction(callback)
