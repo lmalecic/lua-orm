@@ -39,7 +39,7 @@ return function(tableName, fieldSchema)
     local entityProxy = EntityProxy.new(ModelClass, fieldProxies)
 
     function ModelClass.new(data)
-        local self = setmetatable({}, ModelClass)
+        local self = {}
         self._attributes = {}
         self._isPersisted = false
 
@@ -59,7 +59,23 @@ return function(tableName, fieldSchema)
             end
         end
 
-        return self
+        return setmetatable(self, ModelClass)
+    end
+
+    function ModelClass.__index(self, key)
+        if self._attributes[key] then
+            return self._attributes[key]
+        end
+
+        if ModelClass[key] then
+            return ModelClass[key]
+        end
+
+        error("Attribute '" .. key .. "' does not exist")
+    end
+
+    function ModelClass.__newindex(_, key, value)
+        error(string.format("Couldn't set %s to %s; Entities are immutable", key, value))
     end
 
     function ModelClass.asProxy()
