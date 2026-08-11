@@ -9,8 +9,7 @@ Migration.version = "2-migration"
 --- @param migrationBuilder MigrationBuilder
 function Migration.up(migrationBuilder)
     migrationBuilder:alterTable("users", {
-        Alter.addPrimaryKeyConstraint("users_pkey", "id"),
-        Alter.addUniqueKeyConstraint("users_unique_column_key", "unique_column")
+        Alter.addForeignKeyConstraint("users_foreign_key_column_fkey", "foreign_key_column", "foreign_table", "id")
     })
 end
 

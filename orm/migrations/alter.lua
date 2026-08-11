@@ -14,7 +14,15 @@ local Field = require("orm.model.field")
 --- @field name string
 --- @field columnName string
 
---- @alias Alteration AddColumnAlteration | DropColumnAlteration | ConstraintAlteration
+--- @class ForeignKeyConstraintAlteration
+--- @field kind "ADD_CONSTRAINT"
+--- @field type "FOREIGN_KEY"
+--- @field name string
+--- @field columnName string
+--- @field referenceTable string
+--- @field referenceColumn string
+
+--- @alias Alteration AddColumnAlteration | DropColumnAlteration | ConstraintAlteration | ForeignKeyConstraintAlteration
 
 local Alter = {}
 
@@ -53,6 +61,15 @@ end
 ---@return ConstraintAlteration
 function Alter.addUniqueKeyConstraint(name, columnName)
     return { kind = Alter.Kinds.ADD_CONSTRAINT, type = Alter.ConstraintTypes.UNIQUE, name = name, columnName = columnName }
+end
+
+---@param name string
+---@param columnName string
+---@param referenceTable string
+---@param referenceColumn string
+---@return ConstraintAlteration
+function Alter.addForeignKeyConstraint(name, columnName, referenceTable, referenceColumn)
+    return { kind = Alter.Kinds.ADD_CONSTRAINT, type = Alter.ConstraintTypes.FOREIGN_KEY, name = name, columnName = columnName, referenceTable = referenceTable, referenceColumn = referenceColumn }
 end
 
 ---@param name string

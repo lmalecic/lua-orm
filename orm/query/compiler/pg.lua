@@ -43,6 +43,7 @@ local Alterations = {
     RENAME_COLUMN = "RENAME COLUMN %s TO %s",
 
     ADD_CONSTRAINT = "ADD CONSTRAINT %s %s (%s)",
+    ADD_FOREIGN_KEY_CONSTRAINT = "ADD CONSTRAINT %s FOREIGN KEY (%s) REFERENCES %s(%s)",
     DROP_CONSTRAINT = "DROP CONSTRAINT %s",
 }
 
@@ -140,8 +141,6 @@ function PgCompiler:compileAlterationConstraint(alteration)
     local type = ConstraintTypes[alteration.type]
     assert(type, "Unsupported constraint type: " .. tostring(alteration.type))
 
-    -- TODO: Add Foreign Key, this one is a special case
-
     return type
 end
 
@@ -152,6 +151,15 @@ function PgCompiler:compileAlteration(alteration)
     elseif alteration.kind == Alter.Kinds.DROP_COLUMN then
         return Alterations.DROP_COLUMN:format(self.postgres:escape_identifier(alteration.name))
     elseif alteration.kind == Alter.Kinds.ADD_CONSTRAINT then
+        if alteration.type == Alter.ConstraintTypes.FOREIGN_KEY then
+            return Alterations.ADD_FOREIGN_KEY_CONSTRAINT:format(
+                self.postgres:escape_identifier(alteration.name),
+                self.postgres:escape_identifier(alteration.columnName),
+                self.postgres:escape_identifier(alteration.referenceTable),
+                self.postgres:escape_identifier(alteration.referenceColumn)
+            )
+        end
+
         return Alterations.ADD_CONSTRAINT:format(self.postgres:escape_identifier(alteration.name), self:compileAlterationConstraint(alteration), self.postgres:escape_identifier(alteration.columnName))
     elseif alteration.kind == Alter.Kinds.DROP_CONSTRAINT then
         return Alterations.DROP_CONSTRAINT:format(self.postgres:escape_identifier(alteration.name))
@@ -266,7 +274,6 @@ function PgCompiler:compileColumn(field)
     end
 
     if field.default ~= nil and not field.autoIncrement then
-        print(field.default)
         table.insert(fragments, Modifiers.DEFAULT:format(self:compileDefault(field)))
     end
 

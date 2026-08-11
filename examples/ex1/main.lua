@@ -24,6 +24,6 @@ end):all()
 --     db:query("INSERT INTO tranTest (id) VALUES (1)")
 -- end) -- Should fail because tranTest.text has not null constraint
 
--- require("orm.migrations").executeUp(db, require("migrations.0-initial-migration"))
+require("orm.migrations").executeUp(db, require("migrations.0-initial-migration"))
 -- require("orm.migrations").executeUp(db, require("migrations.1-migration"))
-require("orm.migrations").executeUp(db, require("migrations.2-migration"))
+-- require("orm.migrations").executeUp(db, require("migrations.2-migration"))
