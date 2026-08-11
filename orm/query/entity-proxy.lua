@@ -1,3 +1,6 @@
+--- @class EntityProxy
+--- @field modelClass ModelClass
+--- @field proxies table
 local EntityProxy = {}
 EntityProxy.__index = EntityProxy
 

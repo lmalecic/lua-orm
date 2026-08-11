@@ -8,13 +8,14 @@ local OrderFieldProxy = require("orm.query.order-field-proxy")
 --- @field tableName string
 --- @field fields Field[]
 --- @field primaryKey string?
---- @field __index ModelClass?
+--- @field new fun(data: table): ModelClass
+--- @field asProxy fun(): EntityProxy
+--- @field asOrderProxy fun(): OrderFieldProxy
 
 --- @param tableName string
 --- @param fieldSchema FieldDefinition[]
 return function(tableName, fieldSchema)
     local ModelClass = {}
-    ModelClass.__index = ModelClass
     ModelClass.tableName = tableName
     ModelClass.fields = {} --[[ @as Field[] ]]
     ModelClass.primaryKey = nil
