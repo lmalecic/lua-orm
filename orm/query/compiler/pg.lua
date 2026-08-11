@@ -122,8 +122,9 @@ function PgCompiler:compileCreateTable(tableName, fields)
     return Clauses.CREATE_TABLE:format(self.postgres:escape_identifier(tableName), table.concat(columns, ", "))
 end
 
-function PgCompiler:compileDropTable(model)
-    return Clauses.DROP_TABLE:format(self.postgres:escape_identifier(model.tableName))
+--- @param name string
+function PgCompiler:compileDropTable(name)
+    return Clauses.DROP_TABLE:format(self.postgres:escape_identifier(name))
 end
 
 function PgCompiler:compileAlterTable(tableName, alterations)
