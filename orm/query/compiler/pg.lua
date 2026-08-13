@@ -35,6 +35,7 @@ local Clauses = {
     FIRST = "LIMIT 1",
 
     INSERT_INTO_RETURNING = "INSERT INTO %s (%s) VALUES (%s) RETURNING %s;",
+    INSERT_INTO_DEFAULT_VALUES_RETURNING = "INSERT INTO %s DEFAULT VALUES RETURNING %s;",
     UPDATE_BY_ID = "UPDATE %s SET %s WHERE %s = %s;",
     DELETE_WHERE = "DELETE FROM %s WHERE %s = %s;"
 }
@@ -365,12 +366,20 @@ function PgCompiler:compileInsert(entry)
         end
     end
 
-    local sql = Clauses.INSERT_INTO_RETURNING:format(
-        self.postgres:escape_identifier(entry.modelClass.tableName),
-        table.concat(columns, ", "),
-        table.concat(values, ", "),
-        Syntax.ALL_COLUMNS
-    )
+    local sql
+    if #columns > 0 then
+        sql = Clauses.INSERT_INTO_RETURNING:format(
+            self.postgres:escape_identifier(entry.modelClass.tableName),
+            table.concat(columns, ", "),
+            table.concat(values, ", "),
+            Syntax.ALL_COLUMNS
+        )
+    else
+        sql = Clauses.INSERT_INTO_DEFAULT_VALUES_RETURNING:format(
+            self.postgres:escape_identifier(entry.modelClass.tableName),
+            Syntax.ALL_COLUMNS
+        )
+    end
 
     return sql, self.params
 end
