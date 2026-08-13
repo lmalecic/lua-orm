@@ -55,7 +55,6 @@ end
 --- @param sql string
 --- @return table[]
 function Connection:query(sql, ...)
-    print("Attempting to query:", sql, ...)
     self:connect()
 
     local result, err = self.client:query(sql, ...)

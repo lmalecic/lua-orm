@@ -73,10 +73,25 @@ function ChangeTracker:markDeleted(entity, modelClass)
 end
 
 function ChangeTracker:detach(entity)
+    --- @type EntityEntry?
+    local entry = rawget(entity, "_entry")
+
     rawset(entity, "_entry", nil)
-    -- entity._entry = nil
     self.entries[entity] = nil
-    self.identityMap[entity] = nil
+
+    if entry then
+        local primaryKey = entry.modelClass.primaryKey
+        local pkValue = primaryKey and entity[primaryKey] or nil
+        if pkValue ~= nil then
+            local byModel = self.identityMap[entry.modelClass]
+            if byModel then
+                byModel[pkValue] = nil
+                if next(byModel) == nil then
+                    self.identityMap[entry.modelClass] = nil
+                end
+            end
+        end
+    end
 end
 
 --- @param state EntityState

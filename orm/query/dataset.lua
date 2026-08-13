@@ -17,7 +17,6 @@ end
 
 function DataSet:add(entity)
     assert(type(entity) == "table", "DataSet:add() expects an entity")
-    print(getmetatable(entity), self.modelClass)
     assert(getmetatable(entity) == self.modelClass, "Cannot add entity to a DataSet for a different model")
     self.context.changeTracker:trackAdded(entity, self.modelClass)
     return entity

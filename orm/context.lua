@@ -46,11 +46,10 @@ function Context.new(config, schema)
     local modelClasses = {}
     local dataSets = {}
 
-    for _, ModeClass in ipairs(schema) do
-        assert(not data[ModeClass.tableName], "Model " .. ModeClass.tableName .. " already exists")
-        modelClasses[ModeClass.tableName] = ModeClass
-        dataSets[ModeClass.tableName] = DataSet.new(ModeClass, self)
-        -- print(self:getCompiler():compileCreateTable(model.tableName, model.fields))
+    for _, ModelClass in ipairs(schema) do
+        assert(not data[ModelClass.tableName], "Model " .. ModelClass.tableName .. " already exists")
+        modelClasses[ModelClass.tableName] = ModelClass
+        dataSets[ModelClass.tableName] = DataSet.new(ModelClass, self)
     end
 
     self.data = setmetatable(data, {
@@ -66,7 +65,9 @@ function Context.new(config, schema)
 
     self.changeTracker = ChangeTracker.new(self)
 
-    -- self:ensureDatabase()
+    if self.config.database then
+        self:ensureDatabase()
+    end
 
     return self
 end
@@ -86,7 +87,6 @@ function Context:transaction(callback)
 end
 
 function Context:saveChanges()
-    print("Saving changes...")
     local added = self.changeTracker:entriesInState(EntityEntry.State.ADDED)
     local modified = self.changeTracker:entriesInState(EntityEntry.State.MODIFIED)
     local deleted = self.changeTracker:entriesInState(EntityEntry.State.DELETED)
@@ -94,10 +94,8 @@ function Context:saveChanges()
     self:transaction(function()
         local compiler = self:getCompiler()
 
-        print("ADDED:")
         for _, entry in ipairs(added) do
             local sql, params = compiler:compileInsert(entry)
-            print(sql, unpack(params))
             local result = self:query(sql, unpack(params))
 
             if result and result[1] then
@@ -107,17 +105,13 @@ function Context:saveChanges()
             end
         end
 
-        print("MODIFIED:")
         for _, entry in ipairs(modified) do
             local sql, params = compiler:compileUpdate(entry)
-            print(sql, unpack(params))
             self:query(sql, unpack(params))
         end
 
-        print("DELETED:")
         for _, entry in ipairs(deleted) do
             local sql, params = compiler:compileDelete(entry)
-            print(sql, unpack(params))
             self:query(sql, unpack(params))
         end
     end)
@@ -131,7 +125,7 @@ function Context:saveChanges()
     end
 
     for _, entry in ipairs(deleted) do
-        entry:acceptChanges()
+        self.changeTracker:detach(entry.entity)
     end
 end
 

@@ -40,9 +40,6 @@ end
 function Query:all()
     local compiler = self.context:getCompiler()
     local sql, params = compiler:compileSelect(self)
-
-    print(sql, params)
-
     local result = self.context:query(sql, unpack(params))
     local entities = {}
 

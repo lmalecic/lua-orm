@@ -392,7 +392,6 @@ function PgCompiler:compileUpdate(entry)
     local assignments = {}
 
     for fieldName in pairs(entry.changedFields) do
-        print("CHANGED FIELD:", fieldName, "VALUE:", entry.entity[fieldName])
         table.insert(assignments, Syntax.SET:format(
             self.postgres:escape_identifier(fieldName),
             self:_addParam(entry.entity[fieldName])
