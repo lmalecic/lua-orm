@@ -9,7 +9,6 @@ local Migrations = {}
 --- @param context DbContext
 --- @param migration Migration
 function Migrations.executeUp(context, migration)
-    print("Executing migration up...")
     local builder = MigrationBuilder.new(context)
     migration.up(builder)
 
@@ -26,7 +25,7 @@ end
 --- @param context DbContext
 --- @param schema Schema
 function Migrations.generate(context, schema)
-    
+
 end
 
 return Migrations

@@ -2,6 +2,8 @@ local Connection = require("orm.connection")
 local DataSet = require("orm.query.dataset")
 local PgCompiler = require("orm.query.compiler.pg")
 local Migrations = require("orm.migrations")
+local ChangeTracker = require("orm.change-tracking.tracker")
+local EntityEntry = require("orm.change-tracking.entity-entry")
 
 --- @alias Schema ModelClass[]
 
@@ -20,6 +22,7 @@ local Migrations = require("orm.migrations")
 --- @field _pgConnection Connection
 --- @field schema Schema
 --- @field data table<string, DataSet>
+--- @field changeTracker ChangeTracker
 local Context = {}
 Context.__index = Context
 
@@ -36,22 +39,23 @@ function Context.new(config, schema)
         user = config.user,
         password = config.password,
     }, self.config.compiler)
+
     self.schema = schema
 
     local data = {}
     local modelClasses = {}
+    local dataSets = {}
 
-    for _, model in ipairs(schema) do
-        assert(not data[model.tableName], "Model " .. model.tableName .. " already exists")
-        modelClasses[model.tableName] = model
-        print(self:getCompiler():compileCreateTable(model.tableName, model.fields))
+    for _, ModelClass in ipairs(schema) do
+        assert(not data[ModelClass.tableName], "Model " .. ModelClass.tableName .. " already exists")
+        modelClasses[ModelClass.tableName] = ModelClass
+        dataSets[ModelClass.tableName] = DataSet.new(ModelClass, self)
     end
 
     self.data = setmetatable(data, {
         __index = function(_, k)
-            local modelClass = modelClasses[k]
-            assert(modelClass, "Invalid index on context.data; model " .. k .. " not found")
-            return DataSet.new(modelClass, self)
+            local modelClass = assert(modelClasses[k], "Invalid index on context.data; model " .. k .. " not found")
+            return dataSets[modelClass.tableName]
         end,
 
         __newindex = function(_, _, _)
@@ -59,7 +63,11 @@ function Context.new(config, schema)
         end
     })
 
-    self:ensureDatabase()
+    self.changeTracker = ChangeTracker.new(self)
+
+    if self.config.database then
+        self:ensureDatabase()
+    end
 
     return self
 end
@@ -79,7 +87,46 @@ function Context:transaction(callback)
 end
 
 function Context:saveChanges()
+    local added = self.changeTracker:entriesInState(EntityEntry.State.ADDED)
+    local modified = self.changeTracker:entriesInState(EntityEntry.State.MODIFIED)
+    local deleted = self.changeTracker:entriesInState(EntityEntry.State.DELETED)
 
+    self:transaction(function()
+        local compiler = self:getCompiler()
+
+        for _, entry in ipairs(added) do
+            local sql, params = compiler:compileInsert(entry)
+            local result = self:query(sql, unpack(params))
+
+            if result and result[1] then
+                for fieldName, value in pairs(result[1]) do
+                    rawget(entry.entity, "_attributes")[fieldName] = value
+                end
+            end
+        end
+
+        for _, entry in ipairs(modified) do
+            local sql, params = compiler:compileUpdate(entry)
+            self:query(sql, unpack(params))
+        end
+
+        for _, entry in ipairs(deleted) do
+            local sql, params = compiler:compileDelete(entry)
+            self:query(sql, unpack(params))
+        end
+    end)
+
+    for _, entry in ipairs(added) do
+        entry:acceptChanges()
+    end
+
+    for _, entry in ipairs(modified) do
+        entry:acceptChanges()
+    end
+
+    for _, entry in ipairs(deleted) do
+        self.changeTracker:detach(entry.entity)
+    end
 end
 
 function Context:ensureDatabase()
@@ -98,6 +145,32 @@ function Context:ensureDatabase()
     end
 
     conn:disconnect()
+end
+
+--- @param modelClass ModelClass
+--- @param row table
+function Context:_materialize(modelClass, row)
+    row = self.connection:normalizeRow(row)
+
+    local primaryKey = modelClass.primaryKey
+
+    if primaryKey and row[primaryKey] ~= nil then
+        local byModel = self.changeTracker.identityMap[modelClass]
+        if byModel and byModel[row[primaryKey]] then
+            return byModel[row[primaryKey]]
+        end
+    end
+
+    local entity = modelClass.new(row, false)
+    self.changeTracker:trackUnchanged(entity, modelClass)
+
+    if primaryKey and row[primaryKey] ~= nil then
+        local byModel = self.changeTracker.identityMap[modelClass] or {}
+        byModel[row[primaryKey]] = entity
+        self.changeTracker.identityMap[modelClass] = byModel
+    end
+
+    return entity
 end
 
 return Context

@@ -33,10 +33,16 @@ local Clauses = {
     ROLLBACK = "ROLLBACK;",
 
     FIRST = "LIMIT 1",
+
+    INSERT_INTO_RETURNING = "INSERT INTO %s (%s) VALUES (%s) RETURNING %s;",
+    INSERT_INTO_DEFAULT_VALUES_RETURNING = "INSERT INTO %s DEFAULT VALUES RETURNING %s;",
+    UPDATE_BY_ID = "UPDATE %s SET %s WHERE %s = %s;",
+    DELETE_WHERE = "DELETE FROM %s WHERE %s = %s;"
 }
 
 local Syntax = {
-    ALL_COLUMNS = "*"
+    ALL_COLUMNS = "*",
+    SET = "%s = %s"
 }
 
 local Alterations = {
@@ -116,7 +122,6 @@ function PgCompiler:compileCreateTable(tableName, fields)
 
     if #fields > 0 then
         for _, field in ipairs(fields) do
-            print(field.name, field.autoIncrement)
             table.insert(columns, self:compileColumn(field))
         end
     end
@@ -172,6 +177,10 @@ function PgCompiler:compileAlteration(alteration)
 end
 
 function PgCompiler:_addParam(value)
+    if value == nil then
+        value = self.postgres.NULL
+    end
+
     table.insert(self.params, value)
     return "$" .. tostring(#self.params)
 end
@@ -341,6 +350,82 @@ end
 
 function PgCompiler:getUniqueKeyConstraintName(tableName, columnName)
     return NameFormats.UNIQUE_KEY:format(tableName, columnName)
+end
+
+--- @param entry EntityEntry
+function PgCompiler:compileInsert(entry)
+    self.params = {}
+
+    local columns, values = {}, {}
+
+    for _, field in ipairs(entry.modelClass.fields) do
+        local value = entry.entity[field.name]
+        if (not field.autoIncrement or value ~= nil) and value ~= field.default then
+            table.insert(columns, self.postgres:escape_identifier(field.name))
+            table.insert(values, self:_addParam(value))
+        end
+    end
+
+    local sql
+    if #columns > 0 then
+        sql = Clauses.INSERT_INTO_RETURNING:format(
+            self.postgres:escape_identifier(entry.modelClass.tableName),
+            table.concat(columns, ", "),
+            table.concat(values, ", "),
+            Syntax.ALL_COLUMNS
+        )
+    else
+        sql = Clauses.INSERT_INTO_DEFAULT_VALUES_RETURNING:format(
+            self.postgres:escape_identifier(entry.modelClass.tableName),
+            Syntax.ALL_COLUMNS
+        )
+    end
+
+    return sql, self.params
+end
+
+--- @param entry EntityEntry
+function PgCompiler:compileUpdate(entry)
+    self.params = {}
+
+    local primaryKey = assert(entry.modelClass.primaryKey, "Cannot update a model without a primary key")
+    local assignments = {}
+
+    for fieldName in pairs(entry.changedFields) do
+        table.insert(assignments, Syntax.SET:format(
+            self.postgres:escape_identifier(fieldName),
+            self:_addParam(entry.entity[fieldName])
+        ))
+    end
+
+    assert(#assignments > 0, "Cannot compile an update without changed fields")
+
+    local originalPrimaryKey = entry:getOriginalOrCurrentValue(primaryKey)
+
+    local sql = Clauses.UPDATE_BY_ID:format(
+        self.postgres:escape_identifier(entry.modelClass.tableName),
+        table.concat(assignments, ", "),
+        self.postgres:escape_identifier(primaryKey),
+        self:_addParam(originalPrimaryKey)
+    )
+
+    return sql, self.params
+end
+
+--- @param entry EntityEntry
+function PgCompiler:compileDelete(entry)
+    self.params = {}
+
+    local primaryKey = assert(entry.modelClass.primaryKey, "Cannot delete a model without a primary key")
+    local originalPrimaryKey = entry:getOriginalOrCurrentValue(primaryKey)
+
+    local sql = Clauses.DELETE_WHERE:format(
+        self.postgres:escape_identifier(entry.modelClass.tableName),
+        self.postgres:escape_identifier(primaryKey),
+        self:_addParam(originalPrimaryKey)
+    )
+
+    return sql, self.params
 end
 
 return PgCompiler

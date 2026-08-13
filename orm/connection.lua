@@ -55,7 +55,6 @@ end
 --- @param sql string
 --- @return table[]
 function Connection:query(sql, ...)
-    print("Attempting to query:", sql)
     self:connect()
 
     local result, err = self.client:query(sql, ...)
@@ -105,6 +104,17 @@ function Connection:transaction(callback)
     self._inTransaction = false
 
     error(errorOrNil, 0)
+end
+
+function Connection:normalizeRow(row)
+    -- currently PostgreSQL only
+    for columnName, value in pairs(row) do
+        if value == self.client.NULL then
+            row[columnName] = nil
+        end
+    end
+
+    return row
 end
 
 return Connection
