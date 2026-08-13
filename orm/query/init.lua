@@ -59,7 +59,7 @@ function Query:first()
             return entity[self.modelClass.primaryKey]:asc()
         end)
     elseif not self.nodes.orderBy then
-        warn("Method first() used without method orderBy() on a model dataset that doesn't have a primary key; the result will NOT be consistent")
+        io.stderr:write("Method first() used without method orderBy() on a model dataset that doesn't have a primary key; the result will NOT be consistent\n")
     end
 
     local compiler = self.context:getCompiler()
