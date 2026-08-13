@@ -47,18 +47,30 @@ function Query:all()
     local entities = {}
 
     for _, row in ipairs(result) do
-        table.insert(entities, self.modelClass.new(row))
+        table.insert(entities, self.context:_materialize(self.modelClass, row))
     end
 
     return entities
 end
 
 function Query:first()
+    if not self.nodes.orderBy and self.modelClass.primaryKey then
+        self:orderBy(function(entity)
+            return entity[self.modelClass.primaryKey]:asc()
+        end)
+    elseif not self.nodes.orderBy then
+        warn("Method first() used without method orderBy() on a model dataset that doesn't have a primary key; the result will NOT be consistent")
+    end
+
     local compiler = self.context:getCompiler()
     local sql, params = compiler:compileSelectFirst(self)
     local result = self.context:query(sql, unpack(params))
 
-    return result and self.modelClass.new(result[1])
+    if not result or not result[1] then
+        return nil
+    end
+
+    return self.context:_materialize(self.modelClass, result[1])
 end
 
 return Query

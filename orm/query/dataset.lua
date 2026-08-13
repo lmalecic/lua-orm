@@ -16,11 +16,18 @@ function DataSet.new(modelClass, context)
 end
 
 function DataSet:add(entity)
-    -- Change tracking - REMOVED
+    assert(type(entity) == "table", "DataSet:add() expects an entity")
+    print(getmetatable(entity), self.modelClass)
+    assert(getmetatable(entity) == self.modelClass, "Cannot add entity to a DataSet for a different model")
+    self.context.changeTracker:trackAdded(entity, self.modelClass)
+    return entity
 end
 
 function DataSet:remove(entity)
-    -- Change tracking - DELETED
+    assert(type(entity) == "table", "DataSet:remove() expects an entity")
+    assert(getmetatable(entity) == self.modelClass, "Cannot remove entity from a DataSet for a different model")
+    self.context.changeTracker:markDeleted(entity, self.modelClass)
+    return entity
 end
 
 function DataSet:all()

@@ -12,10 +12,25 @@ local db = require("context")
 -- require("orm.migrations").executeUp(db, require("migrations.0-initial-migration"))
 
 local tests = db.data.test:all()
-print(tests[1].id, tests[1].text)
 
 local test = db.data.test:first()
-print(test.id, test.text)
+test.text = "Modified"
+
+local test2 = db.data.test:find(14)
+test2.text = "Modified"
+test2.decimal = 67
+-- test2.text = "Default text"
+
+local Test = require("models.Test")
+
+local newTest = Test.new()
+newTest.text = "Added"
+db.data.test:add(newTest)
+
+db:saveChanges()
+
+
+
 
 -- db.data.test:where(function(test)
 --     return spec.and_(test.id:equals(1), spec.or_(test.text:equals("BABA"), test.char:equals("brah")))
