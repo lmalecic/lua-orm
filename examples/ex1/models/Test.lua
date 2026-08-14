@@ -2,6 +2,7 @@ local Model = require("orm.model")
 local Types = require("orm.model.types")
 local CurrentTimestamp = require("orm.model.expressions.current-timestamp")
 local Constraint = require("orm.model.constraint")
+local Relation = require("orm.model.relation")
 
 local Test = Model("test", {
     { "id",             Types.Int,          Constraint.PrimaryKey, Constraint.AutoIncrement() },
@@ -11,7 +12,9 @@ local Test = Model("test", {
 	{ "char",           Types.Char(20) },
 	{ "varchar",        Types.Varchar(50) },
 	{ "decimal",        Types.Decimal(),    Constraint.Default(67694142) },
-	{ "float",          Types.Float },
+    { "float",         Types.Float },
+
+    { "test2s", Relation.hasMany("test2", "test_id") }
 })
 
 return Test

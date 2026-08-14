@@ -4,6 +4,8 @@ local PgCompiler = require("orm.query.compiler.pg")
 local Migrations = require("orm.migrations")
 local ChangeTracker = require("orm.change-tracking.tracker")
 local EntityEntry = require("orm.change-tracking.entity-entry")
+local Relation = require("orm.model.relation")
+local ModelRelation = require("orm.model.model-relation")
 
 --- @alias Schema ModelClass[]
 
@@ -52,8 +54,35 @@ function Context.new(config, schema)
         modelClasses[ModelClass.tableName] = ModelClass
     end
 
+    ModelRelation.setResolutionKind(Relation.Kinds.BELONGS_TO)
+
+    local resolvedBelongsTo, resolutionError = pcall(function()
+        for _, ModelClass in ipairs(schema) do
+            ModelClass.resolveRelations(modelClasses)
+        end
+    end)
+
+    ModelRelation.setResolutionKind(nil)
+
+    if not resolvedBelongsTo then
+        error(resolutionError, 0)
+    end
+
     for _, ModelClass in ipairs(schema) do
-        ModelClass.resolveRelations(modelClasses)
+        for _, relation in pairs(ModelClass.relations) do
+            if relation.kind ~= Relation.Kinds.BELONGS_TO then
+                relation:resolve(ModelClass, modelClasses)
+
+                -- Relation proxies are created before owner primary-key defaults can
+                -- be resolved, so publish the final generalized join metadata now.
+                local proxy = ModelClass.asRelationProxy().relationFieldProxies[relation.name]
+                proxy.fieldName = relation.sourceColumn
+                proxy.referenceColumnName = relation.targetColumn
+            end
+        end
+    end
+
+    for _, ModelClass in ipairs(schema) do
         dataSets[ModelClass.tableName] = DataSet.new(ModelClass, self)
     end
 

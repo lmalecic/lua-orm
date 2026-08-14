@@ -1,3 +1,5 @@
+local Relation = require("orm.model.relation")
+
 --- @class Query
 --- @field modelClass ModelClass
 --- @field context DbContext
@@ -112,8 +114,7 @@ local function extractSegment(query, result, row, segment)
     local data = {}
 
     for columnIndex = segment.from, segment.to do
-        local columnName = assert(result.fields[columnIndex],
-            string.format("Query result is missing metadata for column %d", columnIndex))
+        local columnName = assert(result.fields[columnIndex], string.format("Query result is missing metadata for column %d", columnIndex))
         data[columnName] = row[columnIndex]
     end
 
@@ -133,10 +134,17 @@ local function materializeResult(query, result)
             #result.fields, expectedColumnCount))
 
     local entities = {}
+    local seenRoots = setmetatable({}, { __mode = "k" })
+    local collectionStates = setmetatable({}, { __mode = "k" })
 
     for _, row in ipairs(result) do
         local rootData = extractSegment(query, result, row, segments[1])
         local rootEntity = query.context:_materialize(query.modelClass, rootData)
+
+        if not seenRoots[rootEntity] then
+            seenRoots[rootEntity] = true
+            table.insert(entities, rootEntity)
+        end
 
         for segmentIndex = 2, #segments do
             local segment = segments[segmentIndex]
@@ -145,19 +153,40 @@ local function materializeResult(query, result)
             local relatedEntity = nil
 
             -- A LEFT JOIN with no matching row yields NULL for every related
-            -- column. The referenced join column is sufficient to detect it.
-            if relatedData[relation.referenceColumn] ~= nil then
+            -- column. The target join column is sufficient to detect it.
+            if relatedData[relation.targetColumn] ~= nil then
                 relatedEntity = query.context:_materialize(segment.modelClass, relatedData)
+                if relatedEntity[relation.targetColumn] ~= relatedData[relation.targetColumn] then
+                    relatedEntity = nil
+                end
             end
 
             -- _materialize() can return an identity-mapped root containing an
-            -- unsaved local FK change. Do not attach stale joined data in that case.
-            if rootEntity[relation.foreignKeyColumn] == rootData[relation.foreignKeyColumn] then
-                query.modelClass._setLoadedRelation(rootEntity, relation.name, relatedEntity)
+            -- unsaved local join-column change. Do not attach stale joined data.
+            if rootEntity[relation.sourceColumn] == rootData[relation.sourceColumn] then
+                if relation.kind == Relation.Kinds.HAS_MANY then
+                    local byRelation = collectionStates[rootEntity]
+                    if not byRelation then
+                        byRelation = {}
+                        collectionStates[rootEntity] = byRelation
+                    end
+
+                    local state = byRelation[relation]
+                    if not state then
+                        state = { values = {}, seen = setmetatable({}, { __mode = "k" }) }
+                        byRelation[relation] = state
+                        query.modelClass._setLoadedRelation(rootEntity, relation.name, state.values)
+                    end
+
+                    if relatedEntity and not state.seen[relatedEntity] then
+                        state.seen[relatedEntity] = true
+                        table.insert(state.values, relatedEntity)
+                    end
+                else
+                    query.modelClass._setLoadedRelation(rootEntity, relation.name, relatedEntity)
+                end
             end
         end
-
-        table.insert(entities, rootEntity)
     end
 
     return entities

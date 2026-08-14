@@ -4,11 +4,12 @@ package.cpath = package.cpath .. ";/usr/local/lib/lua/5.1/?.dylib"
 
 local dbg = require("emmy_core")
 dbg.tcpListen("127.0.0.1", 9966)
--- dbg.waitIDE()
+dbg.waitIDE()
 
 local spec = require("orm.query.specification")
 local db = require("context")
 
+local test2_notincluded = db.data.test2:find(2)
 local test2 = db.data.test2:include(function(test2)
     return test2.test
 end):find(2)

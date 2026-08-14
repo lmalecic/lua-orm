@@ -318,14 +318,15 @@ function PgCompiler:compileInclude(relationProxies)
     end
 
     local joins = {}
-    for _, proxy in ipairs(relationProxies) do
+    for index, proxy in ipairs(relationProxies) do
         local joinType = proxy.required and Joins.INNER_JOIN or Joins.LEFT_JOIN
         local escapedReferenceName = self.postgres:escape_identifier(proxy.referenceTableName)
+        local escapedAlias = self.postgres:escape_identifier("__orm_include_" .. index)
         table.insert(joins, Clauses.JOIN:format(
             joinType,
-            escapedReferenceName,
+            escapedReferenceName .. " AS " .. escapedAlias,
             string.format("%s.%s", self.postgres:escape_identifier(proxy.tableName), self.postgres:escape_identifier(proxy.fieldName)),
-            string.format("%s.%s", escapedReferenceName, self.postgres:escape_identifier(proxy.referenceColumnName))
+            string.format("%s.%s", escapedAlias, self.postgres:escape_identifier(proxy.referenceColumnName))
         ))
     end
 
@@ -333,11 +334,8 @@ function PgCompiler:compileInclude(relationProxies)
 end
 
 --- @param query Query
---- @return string, any[]
-function PgCompiler:compileSelect(query)
-    local fragments = { Clauses.SELECT, Syntax.ALL_COLUMNS, Clauses.FROM, self.postgres:escape_identifier(query
-        .modelClass.tableName), self:compileInclude(query.nodes.include) }
-
+--- @param fragments string[]
+function PgCompiler:_compileSelectModifiers(query, fragments)
     if query.nodes.where and #query.nodes.where > 0 then
         table.insert(fragments, Clauses.WHERE)
         for _, node in ipairs(query.nodes.where) do
@@ -353,14 +351,43 @@ function PgCompiler:compileSelect(query)
         end
         table.insert(fragments, table.concat(orderClauses, ", "))
     end
+end
+
+--- @param query Query
+--- @return string, any[]
+function PgCompiler:compileSelect(query)
+    local fragments = { Clauses.SELECT, Syntax.ALL_COLUMNS, Clauses.FROM, self.postgres:escape_identifier(query
+        .modelClass.tableName), self:compileInclude(query.nodes.include) }
+
+    self:_compileSelectModifiers(query, fragments)
 
     return table.concat(fragments, " "), self.params
 end
 
+--- @param query Query
 --- @return string, any[]
 function PgCompiler:compileSelectFirst(query)
-    local sql, params = self:compileSelect(query)
-    return sql .. " " .. Clauses.FIRST, params
+    if not query.nodes.include or #query.nodes.include == 0 then
+        local sql, params = self:compileSelect(query)
+        return sql .. " " .. Clauses.FIRST, params
+    end
+
+    local escapedTableName = self.postgres:escape_identifier(query.modelClass.tableName)
+    local rootFragments = { Clauses.SELECT, Syntax.ALL_COLUMNS, Clauses.FROM, escapedTableName }
+    self:_compileSelectModifiers(query, rootFragments)
+    table.insert(rootFragments, Clauses.FIRST)
+
+    local fragments = {
+        Clauses.SELECT,
+        Syntax.ALL_COLUMNS,
+        Clauses.FROM,
+        "(" .. table.concat(rootFragments, " ") .. ")",
+        "AS",
+        escapedTableName,
+        self:compileInclude(query.nodes.include),
+    }
+
+    return table.concat(fragments, " "), self.params
 end
 
 -- Migrations

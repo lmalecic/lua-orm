@@ -13,7 +13,13 @@ Relation.Kinds = {
 --- @field referenceColumn string
 --- @field foreignKeyColumn string?
 
---- @alias RelationDefinition BelongsToDefinition
+--- @class InverseRelationDefinition
+--- @field kind "HAS_ONE" | "HAS_MANY"
+--- @field referenceTable string
+--- @field targetForeignKeyColumn string
+--- @field localColumn string?
+
+--- @alias RelationDefinition BelongsToDefinition | InverseRelationDefinition
 local RelationDefinition = {}
 RelationDefinition.__index = RelationDefinition
 
@@ -45,12 +51,47 @@ function Relation.belongsTo(referenceTable, referenceColumn, options)
     }, RelationDefinition)
 end
 
-function Relation.hasOne(tbl, column)
+local function inverse(kind, apiName, referenceTable, targetForeignKeyColumn, options)
+    assert(type(referenceTable) == "string" and referenceTable ~= "",
+        apiName .. " expects a non-empty reference table name; got " .. tostring(referenceTable))
+    assert(type(targetForeignKeyColumn) == "string" and targetForeignKeyColumn ~= "",
+        apiName .. " expects a non-empty target foreign-key column name; got " ..
+            tostring(targetForeignKeyColumn))
 
+    options = options or {}
+    assert(type(options) == "table",
+        apiName .. " expects an optional options table; got " .. tostring(options))
+
+    if options.localColumn ~= nil then
+        assert(type(options.localColumn) == "string" and options.localColumn ~= "",
+            apiName .. " option 'localColumn' must be a non-empty string; got " ..
+                tostring(options.localColumn))
+    end
+
+    return setmetatable({
+        kind = kind,
+        referenceTable = referenceTable,
+        targetForeignKeyColumn = targetForeignKeyColumn,
+        localColumn = options.localColumn,
+    }, RelationDefinition)
 end
 
-function Relation.hasMany(tbl, column)
+--- @param referenceTable string
+--- @param targetForeignKeyColumn string
+--- @param options table?
+--- @return RelationDefinition
+function Relation.hasOne(referenceTable, targetForeignKeyColumn, options)
+    return inverse(Relation.Kinds.HAS_ONE, "Relation.hasOne()", referenceTable,
+        targetForeignKeyColumn, options)
+end
 
+--- @param referenceTable string
+--- @param targetForeignKeyColumn string
+--- @param options table?
+--- @return RelationDefinition
+function Relation.hasMany(referenceTable, targetForeignKeyColumn, options)
+    return inverse(Relation.Kinds.HAS_MANY, "Relation.hasMany()", referenceTable,
+        targetForeignKeyColumn, options)
 end
 
 function Relation.isInstance(obj)
