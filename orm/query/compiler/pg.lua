@@ -98,6 +98,21 @@ PgCompiler.__index = PgCompiler
 PgCompiler.MAINTENANCE_DATABASE = "postgres"
 PgCompiler.DATABASE_TABLE = "pg_database"
 
+PgCompiler.CATALOG_SCHEMA = "pg_catalog"
+PgCompiler.RELATIONS_TABLE = "pg_class"
+PgCompiler.REL_NAMESPACE_COLUMN = "relnamespace"
+PgCompiler.REL_NAME_COLUMN = "relname"
+PgCompiler.REL_KIND_COLUMN = "relkind"
+
+PgCompiler.SCHEMAS_TABLE = "pg_namespace"
+PgCompiler.OID_COLUMN = "oid"
+PgCompiler.NAMESPACE_NAME_COLUMN = "nspname"
+
+PgCompiler.PUBLIC_SCHEMA = "public"
+PgCompiler.ORDINARY_TABLE = "r"
+
+PgCompiler.MIGRATION_HISTORY_TABLE = "_lua_orm_migration_history"
+
 function PgCompiler.new(postgres)
     local self = setmetatable({}, PgCompiler)
     self.params = {}

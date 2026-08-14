@@ -4,22 +4,25 @@ package.cpath = package.cpath .. ";/usr/local/lib/lua/5.1/?.dylib"
 
 local dbg = require("emmy_core")
 dbg.tcpListen("127.0.0.1", 9966)
-dbg.waitIDE()
+-- dbg.waitIDE()
 
 local spec = require("orm.query.specification")
 local db = require("context")
 
-local test2_notincluded = db.data.test2:find(2)
-local test2 = db.data.test2:include(function(test2)
-    return test2.test
-end):find(2)
+-- db:migrateUp()
+db:migrateDown("0_initial_migration")
 
-local test = db.data.test:include(function(test)
-    return test.test2s
-end):find(14)
+-- local test2_notincluded = db.data.test2:find(2)
+-- local test2 = db.data.test2:include(function(test2)
+--     return test2.test
+-- end):find(2)
 
-test2.test.text = "Modified through relational property"
-db:saveChanges()
+-- local test = db.data.test:include(function(test)
+--     return test.test2s
+-- end):find(14)
+
+-- test2.test.text = "Modified through relational property"
+-- db:saveChanges()
 
 -- require("orm.migrations").executeUp(db, require("migrations.0-initial-migration"))
 

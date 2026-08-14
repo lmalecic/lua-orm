@@ -1,11 +1,10 @@
-local Field = require("orm.model.field")
 local Types = require("orm.model.types")
 local Constraint = require("orm.model.constraint")
 local Alter = require("orm.migrations.alter")
 local CurrentTimestamp = require("orm.model.expressions.current-timestamp")
 
 local Migration = {}
-Migration.version = "0-initial-migration"
+Migration.version = "0_initial_migration"
 
 --- @param migrationBuilder MigrationBuilder
 function Migration.up(migrationBuilder)
