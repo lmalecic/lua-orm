@@ -31,7 +31,8 @@ end
 
 --- @param migrationBuilder MigrationBuilder
 function Migration.down(migrationBuilder)
-
+    migrationBuilder:dropTable("test2")
+    migrationBuilder:dropTable("test")
 end
 
 return Migration

@@ -358,6 +358,15 @@ function Context:migrateUp()
     return applied
 end
 
+local function hasLaterApplied(migrations, start, alreadyApplied)
+    for i = start, #migrations do
+        if alreadyApplied[migrations[i].version] then
+            return true
+        end
+    end
+    return false
+end
+
 --- @param targetVersion string
 --- @return string[]
 function Context:migrateDown(targetVersion)
@@ -383,7 +392,13 @@ function Context:migrateDown(targetVersion)
     local toRevert = {}
     for i, migration in ipairs(migrations) do
         if migration.version == targetVersion then
-            toRevert = { unpack(migrations, i + 1) }
+            for j = i + 1, #migrations do
+                if alreadyApplied[migrations[j].version] then
+                    table.insert(toRevert, migrations[j])
+                elseif hasLaterApplied(migrations, j + 1, alreadyApplied) then
+                    error(string.format("Inconsistent migration history: %s is not applied but a later migration is",migrations[j].version))
+                end
+            end
             break
         end
     end
@@ -407,7 +422,7 @@ function Context:migrateDown(targetVersion)
                 conn.client:escape_identifier(self.config.compiler.MIGRATION_HISTORY_TABLE)
             ), migration.version)
 
-            table.insert(reverted, migration)
+            table.insert(reverted, migration.version)
         end
     end)
 
