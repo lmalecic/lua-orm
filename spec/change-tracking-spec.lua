@@ -1,3 +1,4 @@
+---@diagnostic disable: undefined-global, undefined-field
 package.path = "./?.lua;./?/init.lua;" .. package.path
 package.cpath = package.cpath .. ";/usr/local/lib/lua/5.1/?.dylib"
 

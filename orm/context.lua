@@ -21,6 +21,7 @@ local EntityEntry = require("orm.change-tracking.entity-entry")
 --- @field connection Connection
 --- @field _pgConnection Connection
 --- @field schema Schema
+--- @field modelClasses table<string, ModelClass>
 --- @field data table<string, DataSet>
 --- @field changeTracker ChangeTracker
 local Context = {}
@@ -47,10 +48,16 @@ function Context.new(config, schema)
     local dataSets = {}
 
     for _, ModelClass in ipairs(schema) do
-        assert(not data[ModelClass.tableName], "Model " .. ModelClass.tableName .. " already exists")
+        assert(not modelClasses[ModelClass.tableName], "Model " .. ModelClass.tableName .. " already exists")
         modelClasses[ModelClass.tableName] = ModelClass
+    end
+
+    for _, ModelClass in ipairs(schema) do
+        ModelClass.resolveRelations(modelClasses)
         dataSets[ModelClass.tableName] = DataSet.new(ModelClass, self)
     end
+
+    self.modelClasses = modelClasses
 
     self.data = setmetatable(data, {
         __index = function(_, k)
@@ -78,6 +85,10 @@ end
 
 function Context:query(sql, ...)
     return self.connection:query(sql, ...)
+end
+
+function Context:query_array(sql, ...)
+    return self.connection:query_array(sql, ...)
 end
 
 --- Runs callback atomically using this context's connection.

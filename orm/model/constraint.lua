@@ -73,4 +73,8 @@ function Constraint.ForeignKey(referenceTable, referenceColumn)
     return { kind = Constraint.Kinds.FOREIGN_KEY, referenceTable = referenceTable, referenceColumn = referenceColumn }
 end
 
+function Constraint.isInstance(obj)
+    return type(obj) == "table" and Constraint.Kinds[obj.kind]
+end
+
 return Constraint

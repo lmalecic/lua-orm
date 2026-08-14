@@ -1,5 +1,5 @@
-local FieldProxy = require("orm.query.field-proxy")
-local OrderFieldProxy = require("orm.query.order-field-proxy")
+local FieldProxy = require("orm.query.proxy.field")
+local OrderFieldProxy = require("orm.query.proxy.order-field")
 
 local ConstantNode = require("orm.query.node.constant")
 local ComparisonNode = require("orm.query.node.comparison")
@@ -37,7 +37,9 @@ local Clauses = {
     INSERT_INTO_RETURNING = "INSERT INTO %s (%s) VALUES (%s) RETURNING %s;",
     INSERT_INTO_DEFAULT_VALUES_RETURNING = "INSERT INTO %s DEFAULT VALUES RETURNING %s;",
     UPDATE_BY_ID = "UPDATE %s SET %s WHERE %s = %s;",
-    DELETE_WHERE = "DELETE FROM %s WHERE %s = %s;"
+    DELETE_WHERE = "DELETE FROM %s WHERE %s = %s;",
+
+    JOIN = "%s %s ON %s = %s"
 }
 
 local Syntax = {
@@ -83,6 +85,11 @@ local OrderDirection = {
 local NameFormats = {
     PRIMARY_KEY = "%s_pkey",
     UNIQUE_KEY = "%s_%s_key",
+}
+
+local Joins = {
+    INNER_JOIN = "INNER JOIN",
+    LEFT_JOIN = "LEFT JOIN",
 }
 
 local PgCompiler = {}
@@ -303,10 +310,33 @@ function PgCompiler:compileColumn(field)
     return table.concat(fragments, " ")
 end
 
+--- @param relationProxies RelationFieldProxy[]
+--- @return string?
+function PgCompiler:compileInclude(relationProxies)
+    if not relationProxies or #relationProxies == 0 then
+        return nil
+    end
+
+    local joins = {}
+    for _, proxy in ipairs(relationProxies) do
+        local joinType = proxy.required and Joins.INNER_JOIN or Joins.LEFT_JOIN
+        local escapedReferenceName = self.postgres:escape_identifier(proxy.referenceTableName)
+        table.insert(joins, Clauses.JOIN:format(
+            joinType,
+            escapedReferenceName,
+            string.format("%s.%s", self.postgres:escape_identifier(proxy.tableName), self.postgres:escape_identifier(proxy.fieldName)),
+            string.format("%s.%s", escapedReferenceName, self.postgres:escape_identifier(proxy.referenceColumnName))
+        ))
+    end
+
+    return table.concat(joins, " ")
+end
+
+--- @param query Query
 --- @return string, any[]
 function PgCompiler:compileSelect(query)
     local fragments = { Clauses.SELECT, Syntax.ALL_COLUMNS, Clauses.FROM, self.postgres:escape_identifier(query
-        .modelClass.tableName) }
+        .modelClass.tableName), self:compileInclude(query.nodes.include) }
 
     if query.nodes.where and #query.nodes.where > 0 then
         table.insert(fragments, Clauses.WHERE)

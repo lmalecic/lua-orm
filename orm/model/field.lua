@@ -44,7 +44,7 @@ function Field.new(definition)
 
     for i = 3, #definition do
         local constraint = definition[i]
-        assert(type(constraint) == "table" and Constraint.Kinds[constraint.kind], "Invalid constraint definition at index " .. i)
+        assert(Constraint.isInstance(constraint), "Invalid constraint definition at index " .. i .. "; all objects starting from index 3 in the field defintion must be Constraint objects")
 
         if constraint.kind == Constraint.Kinds.PRIMARY_KEY then
             self.primaryKey = true

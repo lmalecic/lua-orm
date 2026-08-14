@@ -9,27 +9,49 @@ dbg.tcpListen("127.0.0.1", 9966)
 local spec = require("orm.query.specification")
 local db = require("context")
 
+local test2s = db.data.test2:include(function(test2)
+    return test2.test
+end):all()
+
+for _, t in ipairs(test2s) do
+    print("Test2:", t.id, t.test_id)
+    if t.test then
+        print("Related Test:", t.test.id, t.test.text)
+    else
+        print("No related Test")
+    end
+    print("")
+end
 -- require("orm.migrations").executeUp(db, require("migrations.0-initial-migration"))
 
-local tests = db.data.test:all()
+-- local tests = db.data.test:all()
 
-local test = db.data.test:first()
-test.text = "Modified"
+-- local test = db.data.test:first()
+-- test.text = "Modified"
 
-local test2 = db.data.test:find(14)
-test2.text = "Modified"
-test2.decimal = 67
--- test2.text = "Default text"
+-- local test2 = db.data.test:find(14)
+-- test2.text = "Modified"
+-- test2.decimal = 67
+-- -- test2.text = "Default text"
 
-local Test = require("models.Test")
+-- local Test = require("models.Test")
 
-local newTest = Test.new()
-newTest.text = "Added"
-db.data.test:add(newTest)
+-- local newTest = Test.new()
+-- newTest.text = "Added"
+-- db.data.test:add(newTest)
 
-db:saveChanges()
+-- db:saveChanges()
 
+--- Test to see if query_array would work for queries with include:
+-- local res1 = db.connection:query_array([=[
+--     select * from test2
+--     inner join test on test2.test_id = test.id;
+-- ]=])
+-- -----------
 
+-- db.data.test2:include(function(test2)
+--     return test2.test
+-- end)
 
 
 -- db.data.test:where(function(test)
