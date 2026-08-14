@@ -53,6 +53,14 @@ function Query:orderBy(expression)
     return self
 end
 
+function Query:find(pkValue)
+    return self:where(function(e)
+        assert(self.modelClass.primaryKey, self.modelClass.tableName .. " model does not have a primary key; find() can only be called on a model with a primary key")
+        local primaryKey = e[self.modelClass.primaryKey]
+        return primaryKey:equals(pkValue)
+    end):first()
+end
+
 --- @class QueryResultSegment
 --- @field modelClass ModelClass
 --- @field from integer

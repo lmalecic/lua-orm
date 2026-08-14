@@ -9,19 +9,13 @@ dbg.tcpListen("127.0.0.1", 9966)
 local spec = require("orm.query.specification")
 local db = require("context")
 
-local test2s = db.data.test2:include(function(test2)
+local test2 = db.data.test2:include(function(test2)
     return test2.test
-end):all()
+end):find(2)
 
-for _, t in ipairs(test2s) do
-    print("Test2:", t.id, t.test_id)
-    if t.test then
-        print("Related Test:", t.test.id, t.test.text)
-    else
-        print("No related Test")
-    end
-    print("")
-end
+test2.test.text = "Modified through relational property"
+db:saveChanges()
+
 -- require("orm.migrations").executeUp(db, require("migrations.0-initial-migration"))
 
 -- local tests = db.data.test:all()
