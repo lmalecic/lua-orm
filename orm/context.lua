@@ -73,11 +73,9 @@ function Context.new(config, schema)
             if relation.kind ~= Relation.Kinds.BELONGS_TO then
                 relation:resolve(ModelClass, modelClasses)
 
-                -- Relation proxies are created before owner primary-key defaults can
-                -- be resolved, so publish the final generalized join metadata now.
                 local proxy = ModelClass.asRelationProxy().relationFieldProxies[relation.name]
-                proxy.fieldName = relation.sourceColumn
-                proxy.referenceColumnName = relation.targetColumn
+                rawset(proxy, "fieldName", relation.sourceColumn)
+                rawset(proxy, "referenceColumnName", relation.targetColumn)
             end
         end
     end

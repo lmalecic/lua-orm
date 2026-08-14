@@ -14,6 +14,10 @@ local test2 = db.data.test2:include(function(test2)
     return test2.test
 end):find(2)
 
+local test = db.data.test:include(function(test)
+    return test.test2s
+end):find(14)
+
 test2.test.text = "Modified through relational property"
 db:saveChanges()
 

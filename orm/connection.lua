@@ -68,7 +68,7 @@ end
 --- @param sql string
 --- @return table[]
 function Connection:query_array(sql, ...)
-    local success = self:connect()
+    self:connect()
 
     local result, err = self.client:query_array(sql, ...)
     if not result then
