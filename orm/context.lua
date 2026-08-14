@@ -4,6 +4,8 @@ local PgCompiler = require("orm.query.compiler.pg")
 local Migrations = require("orm.migrations")
 local ChangeTracker = require("orm.change-tracking.tracker")
 local EntityEntry = require("orm.change-tracking.entity-entry")
+local Relation = require("orm.model.relation")
+local ModelRelation = require("orm.model.model-relation")
 
 --- @alias Schema ModelClass[]
 
@@ -21,6 +23,7 @@ local EntityEntry = require("orm.change-tracking.entity-entry")
 --- @field connection Connection
 --- @field _pgConnection Connection
 --- @field schema Schema
+--- @field modelClasses table<string, ModelClass>
 --- @field data table<string, DataSet>
 --- @field changeTracker ChangeTracker
 local Context = {}
@@ -47,10 +50,41 @@ function Context.new(config, schema)
     local dataSets = {}
 
     for _, ModelClass in ipairs(schema) do
-        assert(not data[ModelClass.tableName], "Model " .. ModelClass.tableName .. " already exists")
+        assert(not modelClasses[ModelClass.tableName], "Model " .. ModelClass.tableName .. " already exists")
         modelClasses[ModelClass.tableName] = ModelClass
+    end
+
+    ModelRelation.setResolutionKind(Relation.Kinds.BELONGS_TO)
+
+    local resolvedBelongsTo, resolutionError = pcall(function()
+        for _, ModelClass in ipairs(schema) do
+            ModelClass.resolveRelations(modelClasses)
+        end
+    end)
+
+    ModelRelation.setResolutionKind(nil)
+
+    if not resolvedBelongsTo then
+        error(resolutionError, 0)
+    end
+
+    for _, ModelClass in ipairs(schema) do
+        for _, relation in pairs(ModelClass.relations) do
+            if relation.kind ~= Relation.Kinds.BELONGS_TO then
+                relation:resolve(ModelClass, modelClasses)
+
+                local proxy = ModelClass.asRelationProxy().relationFieldProxies[relation.name]
+                rawset(proxy, "fieldName", relation.sourceColumn)
+                rawset(proxy, "referenceColumnName", relation.targetColumn)
+            end
+        end
+    end
+
+    for _, ModelClass in ipairs(schema) do
         dataSets[ModelClass.tableName] = DataSet.new(ModelClass, self)
     end
+
+    self.modelClasses = modelClasses
 
     self.data = setmetatable(data, {
         __index = function(_, k)
@@ -78,6 +112,10 @@ end
 
 function Context:query(sql, ...)
     return self.connection:query(sql, ...)
+end
+
+function Context:query_array(sql, ...)
+    return self.connection:query_array(sql, ...)
 end
 
 --- Runs callback atomically using this context's connection.

@@ -5,10 +5,10 @@ local EntityProxy = {}
 EntityProxy.__index = EntityProxy
 
 function EntityProxy.new(modelClass, proxies)
-    local self = {}
-    self.modelClass = modelClass
-    self.proxies = proxies
-    return setmetatable(self, EntityProxy)
+    return setmetatable({
+        modelClass = modelClass,
+        proxies = proxies,
+    }, EntityProxy)
 end
 
 function EntityProxy:__index(key)

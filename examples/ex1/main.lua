@@ -4,32 +4,53 @@ package.cpath = package.cpath .. ";/usr/local/lib/lua/5.1/?.dylib"
 
 local dbg = require("emmy_core")
 dbg.tcpListen("127.0.0.1", 9966)
--- dbg.waitIDE()
+dbg.waitIDE()
 
 local spec = require("orm.query.specification")
 local db = require("context")
 
--- require("orm.migrations").executeUp(db, require("migrations.0-initial-migration"))
+local test2_notincluded = db.data.test2:find(2)
+local test2 = db.data.test2:include(function(test2)
+    return test2.test
+end):find(2)
 
-local tests = db.data.test:all()
+local test = db.data.test:include(function(test)
+    return test.test2s
+end):find(14)
 
-local test = db.data.test:first()
-test.text = "Modified"
-
-local test2 = db.data.test:find(14)
-test2.text = "Modified"
-test2.decimal = 67
--- test2.text = "Default text"
-
-local Test = require("models.Test")
-
-local newTest = Test.new()
-newTest.text = "Added"
-db.data.test:add(newTest)
-
+test2.test.text = "Modified through relational property"
 db:saveChanges()
 
+-- require("orm.migrations").executeUp(db, require("migrations.0-initial-migration"))
 
+-- local tests = db.data.test:all()
+
+-- local test = db.data.test:first()
+-- test.text = "Modified"
+
+-- local test2 = db.data.test:find(14)
+-- test2.text = "Modified"
+-- test2.decimal = 67
+-- -- test2.text = "Default text"
+
+-- local Test = require("models.Test")
+
+-- local newTest = Test.new()
+-- newTest.text = "Added"
+-- db.data.test:add(newTest)
+
+-- db:saveChanges()
+
+--- Test to see if query_array would work for queries with include:
+-- local res1 = db.connection:query_array([=[
+--     select * from test2
+--     inner join test on test2.test_id = test.id;
+-- ]=])
+-- -----------
+
+-- db.data.test2:include(function(test2)
+--     return test2.test
+-- end)
 
 
 -- db.data.test:where(function(test)
