@@ -199,12 +199,9 @@ function PgCompiler:compileAlteration(alteration)
     if alteration.kind == Alter.Kinds.ADD_COLUMN then
         return Alterations.ADD_COLUMN:format(self:compileColumn(alteration.field))
     elseif alteration.kind == Alter.Kinds.ALTER_COLUMN and alteration.operation == Alter.ColumnOperation.RENAME then
-        return Alterations.ALTER_COLUMN:format(
+        return Alterations.RENAME_COLUMN:format(
             self.postgres:escape_identifier(alteration.column),
-            AlterColumnFormats.RENAME:format(
-                self.postgres:escape_identifier(alteration.column),
-                self.postgres:escape_identifier(alteration.newName)
-            )
+            self.postgres:escape_identifier(alteration.newName)
         )
     elseif alteration.kind == Alter.Kinds.ALTER_COLUMN and alteration.operation == Alter.ColumnOperation.SET_TYPE then
         return Alterations.ALTER_COLUMN:format(
