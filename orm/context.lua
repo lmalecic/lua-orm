@@ -33,6 +33,8 @@ local ModelRelation = require("orm.model.model-relation")
 local Context = {}
 Context.__index = Context
 
+--- @param config DbConfig
+--- @param schema ModelClass[]
 function Context.new(config, schema)
     local self = setmetatable({}, Context)
     self.config = config or {}
@@ -51,6 +53,7 @@ function Context.new(config, schema)
     self.schema = schema
 
     local data = {}
+    --- @type table<string, ModelClass>
     local modelClasses = {}
     local dataSets = {}
 
@@ -375,7 +378,8 @@ function Context:migrateDown(targetVersion)
     local conn = self.connection
     local alreadyApplied = self:_getAppliedMigrationVersions()
 
-    assert(alreadyApplied[targetVersion], string.format("Failed to revert migration: Migration %s is not applied", targetVersion))
+    assert(alreadyApplied[targetVersion],
+        string.format("Failed to revert migration: Migration %s is not applied", targetVersion))
 
     local migrations = self:_loadMigrations()
 
@@ -396,7 +400,8 @@ function Context:migrateDown(targetVersion)
                 if alreadyApplied[migrations[j].version] then
                     table.insert(toRevert, migrations[j])
                 elseif hasLaterApplied(migrations, j + 1, alreadyApplied) then
-                    error(string.format("Inconsistent migration history: %s is not applied but a later migration is",migrations[j].version))
+                    error(string.format("Inconsistent migration history: %s is not applied but a later migration is",
+                        migrations[j].version))
                 end
             end
             break

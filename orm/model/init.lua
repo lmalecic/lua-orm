@@ -281,9 +281,7 @@ return function(tableName, fieldSchema)
         local loadedRelations = rawget(self, "_loadedRelations")
 
         for _, relation in pairs(ModelClass.relations) do
-            if relation.kind ~= Relation.Kinds.BELONGS_TO
-                and relation.sourceColumn == fieldName
-                and loadedRelations[relation.name] then
+            if relation.kind ~= Relation.Kinds.BELONGS_TO and relation.sourceColumn == fieldName and loadedRelations[relation.name] then
                 if relation.kind == Relation.Kinds.HAS_ONE then
                     assert(newValue ~= nil or relation.targetField.nullable,
                         string.format("Cannot clear '%s.%s' while required relation '%s.%s' is loaded",

@@ -16,13 +16,14 @@ local Decimal = setmetatable({}, {
 Decimal.__index = Decimal
 Decimal.class = Decimal
 Decimal.super = Type
+Decimal.typeName = "Decimal"
 
 --- @param precision number?
 --- @param scale number?
 --- @return Decimal
 function Decimal.new(precision, scale)
 	if precision == nil and scale ~= nil then
-		error("Parametera scale is not supported without precision parameter!")
+		error("Parameter scale is not supported without precision parameter!")
 	end
 
 	local self = setmetatable(Type.new("DECIMAL"), Decimal) --[[@as Decimal]]
@@ -43,8 +44,17 @@ function Decimal:toSql()
 end
 
 function Decimal:formatDefault(value)
-	assert(type(value) == "number", self.name .. " default must be a number!")
-	return tostring(value)
+    assert(type(value) == "number", self.name .. " default must be a number!")
+    return tostring(value)
+end
+
+function Decimal:toGeneratorReferenceString()
+    if self.precision and self.scale then
+        return ("%s(%d, %d)"):format(self.typeName, self.precision, self.scale)
+    elseif self.precision then
+        return ("%s(%d)"):format(self.typeName, self.precision)
+    end
+    return ("%s()"):format(self.typeName)
 end
 
 return Decimal

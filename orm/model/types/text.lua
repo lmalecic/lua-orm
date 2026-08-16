@@ -5,6 +5,7 @@ local Text = setmetatable({}, { __index = Type })
 Text.__index = Text
 Text.class = Text
 Text.super = Type
+Text.typeName = "Text"
 
 function Text.new()
 	return setmetatable(Type.new("TEXT"), Text) --[[@as Text]]

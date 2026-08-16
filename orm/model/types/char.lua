@@ -14,6 +14,7 @@ local Char = setmetatable({}, {
 Char.__index = Char
 Char.class = Char
 Char.super = Type
+Char.typeName = "Char"
 
 --- @param length number
 --- @return Char
@@ -28,9 +29,16 @@ function Char:toSql()
 end
 
 function Char:formatDefault(value)
-	assert(type(value) == "string", "CHAR default must be a string")
+    assert(type(value) == "string", "CHAR default must be a string")
 
-	return "'" .. value:gsub("'", "''") .. "'"
+    return "'" .. value:gsub("'", "''") .. "'"
+end
+
+function Char:toGeneratorReferenceString()
+    if self.length == 1 then
+        return ("%s()"):format(self.typeName)
+    end
+    return ("%s(%d)"):format(self.typeName, self.length)
 end
 
 return Char

@@ -1,3 +1,5 @@
+local ValueHelper = require("orm.helpers.value")
+
 --- @class PrimaryKeyConstraint
 --- @field kind "PRIMARY_KEY"
 
@@ -47,6 +49,8 @@ Constraint.IdentityMode = {
     BY_DEFAULT = "BY_DEFAULT"
 }
 
+local DEFAULT_IDENTITY_MODE = Constraint.IdentityMode.ALWAYS
+
 --- @type PrimaryKeyConstraint
 Constraint.PrimaryKey = { kind = Constraint.Kinds.PRIMARY_KEY }
 --- @type NotNullConstraint
@@ -54,15 +58,34 @@ Constraint.NotNull = { kind = Constraint.Kinds.NOT_NULL }
 --- @type UniqueConstraint
 Constraint.Unique = { kind = Constraint.Kinds.UNIQUE }
 
+--- @param constraint Constraint
+function Constraint.asCode(constraint)
+    if constraint.kind == Constraint.Kinds.PRIMARY_KEY then
+        return "Constraint.PrimaryKey"
+    elseif constraint.kind == Constraint.Kinds.NOT_NULL then
+        return "Constraint.NotNull"
+    elseif constraint.kind == Constraint.Kinds.UNIQUE then
+        return "Constraint.Unique"
+    elseif constraint.kind == Constraint.Kinds.DEFAULT then
+        return ("Constraint.Default(%s)"):format(ValueHelper.valueToCode(constraint.value))
+    elseif constraint.kind == Constraint.Kinds.AUTO_INCREMENT then
+        return ("Constraint.AutoIncrement(%s)"):format("Constraint.IdentityMode." .. constraint.identityMode)
+    elseif constraint.kind == Constraint.Kinds.FOREIGN_KEY then
+        return ("Constraint.ForeignKey(%q, %q)"):format(constraint.referenceTable, constraint.referenceColumn)
+    end
+    error("Unsupported constraint of kind " .. constraint.kind .. " in Constraint.asCode()")
+end
+
 --- @param identityMode IdentityMode?
 --- @return AutoIncrementConstraint
 function Constraint.AutoIncrement(identityMode)
-    return { kind = Constraint.Kinds.AUTO_INCREMENT, identityMode = identityMode or Constraint.IdentityMode.ALWAYS }
+    return { kind = Constraint.Kinds.AUTO_INCREMENT, identityMode = identityMode or DEFAULT_IDENTITY_MODE }
 end
 
 --- @param value any
 --- @return DefaultConstraint
 function Constraint.Default(value)
+    assert(value ~= nil, "Default constraint value cannot be nil; it is not necessary to specify a nil default value for a column as it defaults to NULL if its nullable. If it is not nullable, you must specify a non-nil value instead")
     return { kind = Constraint.Kinds.DEFAULT, value = value }
 end
 

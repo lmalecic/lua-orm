@@ -1,20 +1,21 @@
 local lfs = require("lfs")
+local Alter = require("orm.migrations.alter")
+local ValueHelper = require("orm.helpers.value")
 
-local MIGRATION_TEMPLATE = [=[
-    local Migration = {}
-    Migration.version = "%s"
+local MIGRATION_TEMPLATE = [=[local Migration = {}
+Migration.version = %q
 
-    --- @param migrationBuilder MigrationBuilder
-    function Migration.up(migrationBuilder)
-        %s
-    end
+--- @param migrationBuilder MigrationBuilder
+function Migration.up(migrationBuilder)
+%s
+end
 
-    --- @param migrationBuilder MigrationBuilder
-    function Migration.down(migrationBuilder)
-        %s
-    end
+--- @param migrationBuilder MigrationBuilder
+function Migration.down(migrationBuilder)
+%s
+end
 
-    return Migration
+return Migration
 ]=]
 
 local Requires = {
@@ -25,9 +26,9 @@ local Requires = {
 }
 
 local MigrationBuilderMethods = {
-    CREATE_TABLE = 'migrationBuilder:createTable("%s", { %s })',
-    DROP_TABLE = 'migrationBuilder:dropTable("%s")',
-    ALTER_TABLE = 'migrationBuilder:alterTable("%s", { %s })'
+    CREATE_TABLE = "migrationBuilder:createTable(%q, { %s })",
+    DROP_TABLE = "migrationBuilder:dropTable(%q)",
+    ALTER_TABLE = "migrationBuilder:alterTable(%q, { %s })"
 }
 
 --- @param str string
@@ -42,56 +43,445 @@ local function timestamp()
     return tostring(os.date("%Y%m%d%H%M%S"))
 end
 
-local function ensureDirRecursive(path)
-  local accum = ""
-  for segment in path:gmatch("[^/]+") do
-    accum = accum == "" and segment or (accum .. "/" .. segment)
-    local attr = lfs.attributes(accum)
-    if not attr then
-      local ok, err = lfs.mkdir(accum)
-      if not ok then
-        return nil, err
-      end
-    elseif attr.mode ~= "directory" then
-      return nil, accum .. " exists and is not a directory"
+--- @param path string
+local function ensureDirectoryExists(path)
+    local accum = path:sub(1, 1) == "/" and "/" or ""
+    for segment in path:gmatch("[^/]+") do
+        if accum == "" then
+            accum = segment
+        elseif accum == "/" then
+            accum = accum .. segment
+        else
+            accum = accum .. "/" .. segment
+        end
+        local attr = lfs.attributes(accum)
+        if not attr then
+            local ok, err = lfs.mkdir(accum)
+            if not ok then
+                return nil, err
+            end
+        elseif attr.mode ~= "directory" then
+            return nil, accum .. " exists and is not a directory"
+        end
     end
-  end
-  return true
+    return true
 end
 
-local MigrationGenerator = {}
-
 --- @class MigrationGeneratorOptions
---- @field migrationsDirectory string?
+--- @field migrationsDirectory string
 
---- @param name string
+--- @class MigrationGenerator
+--- @field name string
+--- @field context DbContext
+--- @field options MigrationGeneratorOptions
+local MigrationGenerator = {}
+MigrationGenerator.__index = MigrationGenerator
+
 --- @param options MigrationGeneratorOptions
-function MigrationGenerator.generate(name, options)
-    options = options or {}
+function MigrationGenerator.new(name, context, options)
+    assert(name ~= nil, "Failed to construct MigrationGenerator: migration name must not be nil")
+    assert(context ~= nil, "Failed to construct MigrationGenerator: context must not be nil")
+    assert(options ~= nil, "Failed to construct MigrationGenerator: options must not be nil")
+    assert(options.migrationsDirectory ~= nil and options.migrationsDirectory ~= "",
+        "Failed to construct MigrationGenerator: migrationsDirectory must not be nil or an empty string")
 
-    local dir = options.migrationsDirectory
-    ensureDirRecursive(dir)
+    return setmetatable({
+        name = name,
+        context = context,
+        options = options,
+    }, MigrationGenerator)
+end
 
-    local slug = toSnakeCase(name)
-    assert(slug ~= "", string.format("Migration name '%s' produced an empty slug after sanitization", name))
+--- @param modelClass ModelClass
+--- @param oldField Field
+--- @param newField Field
+--- @return ColumnAlteration[]
+function MigrationGenerator:getFieldDiff(modelClass, oldField, newField)
+    local compiler = self.context:getCompiler()
+    local diff = {}
+
+    -- This assert should never error but if it does, it means the fields have different names and the field must be renamed
+    assert(oldField.name == newField.name, "Failed to get field diff: Fields must have matching names, got " .. oldField.name .. " and " .. newField.name .. " of model '" .. modelClass.tableName .. "'")
+
+    local typeChanged = not oldField.type:equals(newField.type)
+    if typeChanged then -- PostgreSQL may reject a type change while the old default is attached.
+        if oldField.default ~= nil then
+            table.insert(diff, Alter.dropColumnDefault(oldField.name))
+        end
+        table.insert(diff, Alter.setColumnType(oldField.name, newField.type))
+    end
+
+    if oldField.nullable ~= newField.nullable and newField.nullable then
+        table.insert(diff, Alter.dropColumnNotNull(newField.name))
+    elseif oldField.nullable ~= newField.nullable then
+        table.insert(diff, Alter.setColumnNotNull(newField.name))
+    end
+
+    if oldField.unique ~= newField.unique and newField.unique then
+        table.insert(diff,
+            Alter.addUniqueKeyConstraint(compiler:getUniqueKeyConstraintName(modelClass.tableName, newField.name),
+                newField.name))
+    elseif oldField.unique ~= newField.unique then
+        table.insert(diff, Alter.dropConstraint(compiler:getUniqueKeyConstraintName(modelClass.tableName, newField.name)))
+    end
+
+    local oldForeignKey = oldField.foreignKey
+    local newForeignKey = newField.foreignKey
+    local foreignKeyChanged = (oldForeignKey == nil) ~= (newForeignKey == nil)
+        or (oldForeignKey and newForeignKey
+            and (oldForeignKey.referenceTable ~= newForeignKey.referenceTable
+                or oldForeignKey.referenceColumn ~= newForeignKey.referenceColumn))
+
+    if foreignKeyChanged then
+        local constraintName = compiler:getForeignKeyConstraintName(modelClass.tableName, newField.name)
+        if oldForeignKey then
+            table.insert(diff, Alter.dropConstraint(constraintName))
+        end
+        if newForeignKey then
+            table.insert(diff, Alter.addForeignKeyConstraint(
+                constraintName,
+                newField.name,
+                newForeignKey.referenceTable,
+                newForeignKey.referenceColumn))
+        end
+    end
+
+    if not ValueHelper.equals(oldField.default, newField.default) or typeChanged then
+        if newField.default == nil then
+            if not typeChanged then
+                table.insert(diff, Alter.dropColumnDefault(newField.name))
+            end
+        else
+            table.insert(diff, Alter.setColumnDefault(newField.name, newField.default))
+        end
+    end
+
+    if oldField.autoIncrement ~= newField.autoIncrement then
+        if newField.autoIncrement then
+            table.insert(diff, Alter.addColumnAutoIncrement(newField.name, newField.identityMode))
+        else
+            table.insert(diff, Alter.dropColumnIdentity(newField.name))
+        end
+    elseif newField.autoIncrement and oldField.identityMode ~= newField.identityMode then
+        -- in theory, identity mode will never be set to nil if autoIncrement is true,
+        -- there must be a default (unless some other database provider does differently), so the only case is:
+        -- oldField.identityMode = ALWAYS, newField.identityMode = GENERATED_AS_IDENTITY or vice versa, as for now
+        table.insert(diff, Alter.setColumnIdentity(newField.name, newField.identityMode))
+    end
+
+    if oldField.primaryKey ~= newField.primaryKey then
+        -- oldField = false, newField = true
+        -- oldField = true, newField = false
+        -- both are exclusive, if newField is true, oldField must be false, and vice versa
+        if newField.primaryKey then
+            table.insert(diff,
+                Alter.addPrimaryKeyConstraint(compiler:getPrimaryKeyConstraintName(modelClass.tableName), newField.name))
+        else
+            table.insert(diff, Alter.dropConstraint(compiler:getPrimaryKeyConstraintName(modelClass.tableName)))
+        end
+    end
+
+    return diff
+end
+
+--- @class ModelClassDiff
+--- @field addedFields Field[]
+--- @field removedFields Field[]
+--- @field alterations Alteration[]
+--- @field reverseAlterations Alteration[]
+--- @field oldModel ModelClass
+--- @field newModel ModelClass
+
+--- @class SchemaDiff
+--- @field removed table<string, ModelClass>
+--- @field added table<string, ModelClass>
+--- @field altered table<string, ModelClassDiff>
+function MigrationGenerator:getSchemaDiff()
+    --- @type table<string, ModelClass>
+    local appliedSchema = {}
+    --- @type table<string, ModelClass>
+    local definedSchema = self.context.modelClasses
+
+    local diff = {
+        removed = {},
+        added = {},
+        altered = {}
+    }
+
+    -- Check for removed or altered models
+    for _, modelClass in pairs(appliedSchema) do
+        local definedModel = definedSchema[modelClass.tableName]
+        if definedModel == nil then
+            -- TODO: check for table rename, maybe not in here
+            diff.removed[modelClass.tableName] = modelClass
+        else
+            --- @type ModelClassDiff
+            local modelDiff = {
+                removedFields = {},
+                addedFields = {},
+                alterations = {},
+                reverseAlterations = {},
+                oldModel = modelClass,
+                newModel = definedModel,
+            }
+
+            -- First check for removed or altered fields
+            for _, field in ipairs(modelClass.fields) do
+                local definedField = definedModel.fieldsByName[field.name]
+                if definedField == nil then
+                    -- TODO: Detect renames
+                    table.insert(modelDiff.removedFields, field)
+                else
+                    -- Then check for altered fields
+                    for _, fieldDiff in ipairs(self:getFieldDiff(modelClass, field, definedField)) do
+                        table.insert(modelDiff.alterations, fieldDiff)
+                    end
+                    for _, fieldDiff in ipairs(self:getFieldDiff(definedModel, definedField, field)) do
+                        table.insert(modelDiff.reverseAlterations, fieldDiff)
+                    end
+                end
+            end
+
+            -- Then check for added fields, they do are new and don't need alter
+            for _, field in ipairs(definedModel.fields) do
+                if modelClass.fieldsByName[field.name] == nil then
+                    table.insert(modelDiff.addedFields, field)
+                end
+            end
+
+            if #modelDiff.addedFields > 0 or #modelDiff.removedFields > 0 or #modelDiff.alterations > 0 then
+                diff.altered[modelClass.tableName] = modelDiff
+            end
+        end
+    end
+
+    -- Check for added models, models that were added do not need altering as they are new
+    for _, modelClass in pairs(definedSchema) do
+        if appliedSchema[modelClass.tableName] == nil then
+            diff.added[modelClass.tableName] = modelClass
+        end
+    end
+
+    return diff
+end
+
+--- Returns model names in dependency order, so referenced tables precede tables with foreign keys.
+--- Self-referencing foreign keys do not affect table creation order.
+--- @param models table<string, ModelClass>
+--- @return string[]
+local function orderModelsByDependencies(models)
+    local names = {}
+    for name in pairs(models) do
+        table.insert(names, name)
+    end
+    table.sort(names)
+
+    local ordered, state, stack = {}, {}, {}
+
+    local function visit(name)
+        if state[name] == "visited" then
+            return
+        end
+        if state[name] == "visiting" then
+            table.insert(stack, name)
+            error("Cannot order tables with circular foreign-key dependencies: " .. table.concat(stack, " -> "))
+        end
+
+        state[name] = "visiting"
+        table.insert(stack, name)
+
+        local dependencies = {}
+        for _, field in ipairs(models[name].fields) do
+            local referenceTable = field.foreignKey and field.foreignKey.referenceTable
+            if referenceTable and referenceTable ~= name and models[referenceTable] then
+                dependencies[referenceTable] = true
+            end
+        end
+
+        local dependencyNames = {}
+        for dependencyName in pairs(dependencies) do
+            table.insert(dependencyNames, dependencyName)
+        end
+        table.sort(dependencyNames)
+        for _, dependencyName in ipairs(dependencyNames) do
+            visit(dependencyName)
+        end
+
+        table.remove(stack)
+        state[name] = "visited"
+        table.insert(ordered, name)
+    end
+
+    for _, name in ipairs(names) do
+        visit(name)
+    end
+
+    return ordered
+end
+
+--- @param values any[]
+local function reverse(values)
+    local reversed = {}
+    for index = #values, 1, -1 do
+        table.insert(reversed, values[index])
+    end
+    return reversed
+end
+
+local ALTERATION_PRIORITY = {
+    [Alter.Kinds.DROP_CONSTRAINT] = 10,
+    [Alter.Kinds.ADD_COLUMN] = 40,
+    [Alter.Kinds.ADD_CONSTRAINT] = 80,
+    [Alter.Kinds.DROP_COLUMN] = 90,
+}
+
+local COLUMN_OPERATION_PRIORITY = {
+    [Alter.ColumnOperation.DROP_IDENTITY] = 20,
+    [Alter.ColumnOperation.DROP_DEFAULT] = 21,
+    [Alter.ColumnOperation.DROP_NOT_NULL] = 22,
+    [Alter.ColumnOperation.SET_TYPE] = 30,
+    [Alter.ColumnOperation.SET_DEFAULT] = 50,
+    [Alter.ColumnOperation.SET_NOT_NULL] = 51,
+    [Alter.ColumnOperation.ADD_AUTO_INCREMENT] = 52,
+    [Alter.ColumnOperation.SET_IDENTITY] = 53,
+    [Alter.ColumnOperation.RENAME] = 60,
+}
+
+--- @param alterations Alteration[]
+local function sortAlterations(alterations)
+    table.sort(alterations, function(left, right)
+        local leftPriority = left.kind == Alter.Kinds.ALTER_COLUMN
+            and COLUMN_OPERATION_PRIORITY[left.operation] or ALTERATION_PRIORITY[left.kind]
+        local rightPriority = right.kind == Alter.Kinds.ALTER_COLUMN
+            and COLUMN_OPERATION_PRIORITY[right.operation] or ALTERATION_PRIORITY[right.kind]
+
+        assert(leftPriority, "Missing ordering priority for alteration " .. tostring(left.kind))
+        assert(rightPriority, "Missing ordering priority for alteration " .. tostring(right.kind))
+
+        if leftPriority ~= rightPriority then
+            return leftPriority < rightPriority
+        end
+
+        local leftKey = left.column or left.columnName or left.name or left.field.name
+        local rightKey = right.column or right.columnName or right.name or right.field.name
+        if leftKey ~= rightKey then
+            return leftKey < rightKey
+        end
+
+        return left:toCode() < right:toCode()
+    end)
+end
+
+--- @param modelDiff ModelClassDiff
+--- @param reverseDirection boolean
+--- @return Alteration[]
+local function getTableAlterations(modelDiff, reverseDirection)
+    local alterations = {}
+    local fieldAlterations = reverseDirection and modelDiff.reverseAlterations or modelDiff.alterations
+    local addedFields = reverseDirection and modelDiff.removedFields or modelDiff.addedFields
+    local removedFields = reverseDirection and modelDiff.addedFields or modelDiff.removedFields
+
+    for _, alteration in ipairs(fieldAlterations) do
+        table.insert(alterations, alteration)
+    end
+    for _, field in ipairs(addedFields) do
+        table.insert(alterations, Alter.addColumn(field))
+    end
+    for _, field in ipairs(removedFields) do
+        table.insert(alterations, Alter.dropColumn(field.name))
+    end
+
+    sortAlterations(alterations)
+    return alterations
+end
+
+--- @param modelClass ModelClass
+local function fieldsToCode(modelClass)
+    local definitions = {}
+    for _, field in ipairs(modelClass.fields) do
+        table.insert(definitions, field:definitionToCode())
+    end
+    return table.concat(definitions, ",\n\t\t")
+end
+
+--- @param statements string[]
+local function migrationBody(statements)
+    if #statements == 0 then
+        return "\t-- No schema changes."
+    end
+    return "\t" .. table.concat(statements, "\n\t")
+end
+
+function MigrationGenerator:generate()
+    local directoryCreated, directoryError = ensureDirectoryExists(self.options.migrationsDirectory)
+    assert(directoryCreated, "Failed to create migrations directory: " .. tostring(directoryError))
+
+    local slug = toSnakeCase(self.name)
+    assert(slug ~= "", string.format("Migration name '%s' produced an empty slug after sanitization", self.name))
 
     local version = string.format("%s_%s", timestamp(), slug)
     local filename = string.format("%s.lua", version)
-    local path = string.format("%s/%s", dir, filename)
+    local path = string.format("%s/%s", self.options.migrationsDirectory, filename)
 
     local file, open_err = io.open(path, "w")
-    assert(file, string.format("Failed to create migration file '%s': %s", path, open_err))
+    assert(file, string.format("Failed to create migration file '%s': %s", path, tostring(open_err)))
 
-    local requires = {}
+    local requires = {
+        Requires.TYPES,
+        Requires.CONSTRAINT,
+        Requires.ALTER,
+        Requires.CURRENT_TIMESTAMP,
+    }
     local up = {}
     local down = {}
 
+    local schemaDiff = self:getSchemaDiff()
 
-
-    local fileContent = MIGRATION_TEMPLATE:format(version, table.concat(up, "\n"), table.concat(down, "\n"))
-    if #requires > 0 then
-        fileContent = table.concat(requires, "\n") .. "\n" .. fileContent
+    -- Up: referenced new tables first, existing-table changes next, dependent removals last.
+    for _, tableName in ipairs(orderModelsByDependencies(schemaDiff.added)) do
+        local modelClass = schemaDiff.added[tableName]
+        table.insert(up, MigrationBuilderMethods.CREATE_TABLE:format(tableName, fieldsToCode(modelClass)))
     end
+
+    local alteredNames = {}
+    for tableName in pairs(schemaDiff.altered) do
+        table.insert(alteredNames, tableName)
+    end
+    table.sort(alteredNames)
+    for _, tableName in ipairs(alteredNames) do
+        local alterations = getTableAlterations(schemaDiff.altered[tableName], false)
+        local alterationCode = {}
+        for _, alteration in ipairs(alterations) do
+            table.insert(alterationCode, alteration:toCode())
+        end
+        table.insert(up, MigrationBuilderMethods.ALTER_TABLE:format(tableName, table.concat(alterationCode, ", ")))
+    end
+
+    for _, tableName in ipairs(reverse(orderModelsByDependencies(schemaDiff.removed))) do
+        table.insert(up, MigrationBuilderMethods.DROP_TABLE:format(tableName))
+    end
+
+    -- Down mirrors Up: restore removed dependencies, undo alterations, then remove added dependents.
+    for _, tableName in ipairs(orderModelsByDependencies(schemaDiff.removed)) do
+        local modelClass = schemaDiff.removed[tableName]
+        table.insert(down, MigrationBuilderMethods.CREATE_TABLE:format(tableName, fieldsToCode(modelClass)))
+    end
+
+    for _, tableName in ipairs(alteredNames) do
+        local alterations = getTableAlterations(schemaDiff.altered[tableName], true)
+        local alterationCode = {}
+        for _, alteration in ipairs(alterations) do
+            table.insert(alterationCode, alteration:toCode())
+        end
+        table.insert(down, MigrationBuilderMethods.ALTER_TABLE:format(tableName, table.concat(alterationCode, ", ")))
+    end
+
+    for _, tableName in ipairs(reverse(orderModelsByDependencies(schemaDiff.added))) do
+        table.insert(down, MigrationBuilderMethods.DROP_TABLE:format(tableName))
+    end
+
+    local fileContent = MIGRATION_TEMPLATE:format(version, migrationBody(up), migrationBody(down))
+    fileContent = table.concat(requires, "\n") .. "\n\n" .. fileContent
 
     file:write(fileContent)
     file:close()

@@ -6,6 +6,7 @@ local Timestamp = setmetatable({}, { __index = Type })
 Timestamp.__index = Timestamp
 Timestamp.class = Timestamp
 Timestamp.super = Type
+Timestamp.typeName = "Timestamp"
 
 function Timestamp.new()
 	return setmetatable(Type.new("TIMESTAMP"), Timestamp) --[[@as Timestamp]]
