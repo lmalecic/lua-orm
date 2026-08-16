@@ -231,7 +231,7 @@ function PgCompiler:compileAlteration(alteration)
     elseif alteration.kind == Alter.Kinds.ALTER_COLUMN and alteration.operation == Alter.ColumnOperation.ADD_AUTO_INCREMENT then
         return Alterations.ALTER_COLUMN:format(
             self.postgres:escape_identifier(alteration.column),
-            AlterColumnFormats.ADD_AUTO_INCREMENT:format(alteration.identityMode)
+            AlterColumnFormats.ADD_AUTO_INCREMENT:format(assert(IdentityModes[alteration.identityMode], "Unsupported identity mode: " .. tostring(alteration.identityMode)))
         )
     elseif alteration.kind == Alter.Kinds.ALTER_COLUMN and alteration.operation == Alter.ColumnOperation.SET_IDENTITY then
         return Alterations.ALTER_COLUMN:format(
