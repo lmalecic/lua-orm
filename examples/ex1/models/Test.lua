@@ -13,6 +13,7 @@ local Test = Model("test", {
 	{ "varchar",        Types.Varchar(50) },
 	{ "decimal",        Types.Decimal(),    Constraint.Default(67694142) },
     { "float",         Types.Float },
+    { "newColumn", Types.Int },
 
     { "test2s", Relation.hasMany("test2", "test_id") }
 })

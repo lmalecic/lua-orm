@@ -10,11 +10,10 @@ local MigrationGenerator = require("orm.migrations.generator")
 local spec = require("orm.query.specification")
 local db = require("context")
 
-local generator = MigrationGenerator.new("Initial Migration", db, { migrationsDirectory = db.config.migrationsDir })
-generator:generate()
+-- local generator = MigrationGenerator.new("Initial Migration", db, { migrationsDirectory = db.config.migrationsDir })
+-- generator:generate()
 
 -- db:migrateUp()
--- db:migrateDown("0_initial_migration")
 
 -- local test2_notincluded = db.data.test2:find(2)
 -- local test2 = db.data.test2:include(function(test2)

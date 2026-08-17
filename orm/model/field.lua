@@ -78,6 +78,8 @@ function Field.new(definition)
     return self
 end
 
+-- Returns the field definition as a string of Lua code
+-- Example: { "id", Types.Int, Constraint.PrimaryKey, ... }
 function Field:definitionToCode()
     local constraints = {}
     local name = ("%q"):format(self.name)

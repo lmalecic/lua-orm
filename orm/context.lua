@@ -276,7 +276,7 @@ function Context:_loadMigrations()
 
     local migrationsNamespace = self.config.migrationsDir:gsub("/", ".")
     for file in lfs.dir(self.config.migrationsDir) do
-        if file:match("%.lua$") then
+        if file ~= MigrationGenerator.SCHEMA_SNAPSHOT_FILENAME and file:match("%.lua$") then
             local moduleName = file:sub(1, -5)
             local migration = require(migrationsNamespace .. "." .. moduleName)
             assert(migration.version, string.format("Migration %s is missing a version field", moduleName))
