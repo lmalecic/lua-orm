@@ -78,29 +78,25 @@ local function ensureDirectoryExists(path)
     return true
 end
 
---- @class MigrationGeneratorOptions
---- @field migrationsDirectory string
-
 --- @class MigrationGenerator
 --- @field name string
 --- @field context DbContext
---- @field options MigrationGeneratorOptions
+--- @field migrationsDirectory string
 local MigrationGenerator = {}
 MigrationGenerator.__index = MigrationGenerator
 MigrationGenerator.SCHEMA_SNAPSHOT_FILENAME = "_schema_snapshot.lua"
 
---- @param options MigrationGeneratorOptions
-function MigrationGenerator.new(name, context, options)
+--- @param name string
+--- @param context DbContext
+function MigrationGenerator.new(name, context)
     assert(name ~= nil, "Failed to construct MigrationGenerator: migration name must not be nil")
     assert(context ~= nil, "Failed to construct MigrationGenerator: context must not be nil")
-    assert(options ~= nil, "Failed to construct MigrationGenerator: options must not be nil")
-    assert(options.migrationsDirectory ~= nil and options.migrationsDirectory ~= "",
-        "Failed to construct MigrationGenerator: migrationsDirectory must not be nil or an empty string")
+    assert(context.config.migrationsDir ~= nil, "Failed to construct MigrationGenerator: migrationsDirectory must not be nil or an empty string")
 
     return setmetatable({
         name = name,
         context = context,
-        options = options,
+        migrationsDirectory = context.config.migrationsDir or "migrations",
     }, MigrationGenerator)
 end
 
@@ -215,7 +211,7 @@ function MigrationGenerator:getSchemaDiff()
     local definedSchema = self.context.modelClasses
 
     -- Load applied schema from file
-    local schemaSnapshotPath = string.format("%s/%s", self.options.migrationsDirectory, self.SCHEMA_SNAPSHOT_FILENAME)
+    local schemaSnapshotPath = string.format("%s/%s", self.migrationsDirectory, self.SCHEMA_SNAPSHOT_FILENAME)
     local schemaSnapshotExists = lfs.attributes(schemaSnapshotPath)
     if schemaSnapshotExists then
         local snapshotModule = require(schemaSnapshotPath:gsub("/", "."):sub(1, -5))
@@ -453,7 +449,7 @@ local function generateSchemaContent(modelClasses)
 end
 
 function MigrationGenerator:generate()
-    local directoryCreated, directoryError = ensureDirectoryExists(self.options.migrationsDirectory)
+    local directoryCreated, directoryError = ensureDirectoryExists(self.migrationsDirectory)
     assert(directoryCreated, "Failed to create migrations directory: " .. tostring(directoryError))
 
     local slug = toSnakeCase(self.name)
@@ -515,8 +511,8 @@ function MigrationGenerator:generate()
 
     local migrationVersion = string.format("%s_%s", timestamp(), slug)
     local migrationFilename = string.format("%s.lua", migrationVersion)
-    local migrationPath = string.format("%s/%s", self.options.migrationsDirectory, migrationFilename)
-    local schemaSnapshotPath = string.format("%s/%s", self.options.migrationsDirectory, self.SCHEMA_SNAPSHOT_FILENAME)
+    local migrationPath = string.format("%s/%s", self.migrationsDirectory, migrationFilename)
+    local schemaSnapshotPath = string.format("%s/%s", self.migrationsDirectory, self.SCHEMA_SNAPSHOT_FILENAME)
 
     local migrationFile, migration_open_error = io.open(migrationPath, "w")
     assert(migrationFile, string.format("Failed to create migration file '%s': %s", migrationPath, tostring(migration_open_error)))

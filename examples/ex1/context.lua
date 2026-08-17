@@ -9,7 +9,6 @@ local config = {
     user = os.getenv("PGUSER") or "medix",
     password = os.getenv("PGPASSWORD") or "medix",
     autoMigrate = false,
-    migrationsDir = "examples/ex1/migrations"
 }
 
 local schema = {}
