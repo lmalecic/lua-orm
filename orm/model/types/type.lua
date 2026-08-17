@@ -52,19 +52,7 @@ function Type.isInstance(obj)
 end
 
 function Type:equals(other)
-    if other == nil then
-        return false
-    end
-
-    if self == other then
-        return true
-    end
-
-    if self.name == other.name then
-        return true
-    end
-
-    return false
+    error(self.typeName .. ":equals() is not implemented")
 end
 
 return Type

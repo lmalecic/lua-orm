@@ -57,4 +57,20 @@ function Decimal:toGeneratorReferenceString()
     return ("%s()"):format(self.typeName)
 end
 
+function Decimal:equals(other)
+    if other == nil then
+        return false
+    end
+
+    if self == other then
+        return true
+    end
+
+    if getmetatable(self) == getmetatable(other) and self.precision == other.precision and self.scale == other.scale then
+        return true
+    end
+
+    return false
+end
+
 return Decimal

@@ -40,4 +40,20 @@ function Varchar:toGeneratorReferenceString()
     return ("%s()"):format(self.typeName)
 end
 
+function Varchar:equals(other)
+    if other == nil then
+        return false
+    end
+
+    if self == other then
+        return true
+    end
+
+    if getmetatable(self) == getmetatable(other) and self.length == other.length then
+        return true
+    end
+
+    return false
+end
+
 return Varchar

@@ -25,4 +25,20 @@ function Int:formatDefault(value)
     return tostring(math.floor(value))
 end
 
+function Int:equals(other)
+    if other == nil then
+        return false
+    end
+
+    if self == other then
+        return true
+    end
+
+    if getmetatable(self) == getmetatable(other) then
+        return true
+    end
+
+    return false
+end
+
 return Int.new()
