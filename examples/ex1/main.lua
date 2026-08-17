@@ -1,10 +1,5 @@
 package.path = "./?.lua;./?/init.lua;" .. package.path
 package.path = "./examples/ex1/?.lua;" .. package.path
-package.cpath = package.cpath .. ";/usr/local/lib/lua/5.1/?.dylib"
-
-local dbg = require("emmy_core")
-dbg.tcpListen("127.0.0.1", 9966)
--- dbg.waitIDE()
 
 local MigrationGenerator = require("orm.migrations.generator")
 local spec = require("orm.query.specification")

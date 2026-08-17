@@ -1,10 +1,5 @@
 ---@diagnostic disable: undefined-global, undefined-field
 package.path = "./?.lua;./?/init.lua;" .. package.path
-package.cpath = package.cpath .. ";/usr/local/lib/lua/5.1/?.dylib"
-
-local dbg = require("emmy_core")
-dbg.tcpListen("127.0.0.1", 9966)
--- dbg.waitIDE()
 
 local Model = require("orm.model")
 local Types = require("orm.model.types")
