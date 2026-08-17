@@ -268,6 +268,12 @@ end
 function Context:_loadMigrations()
     local migrations = {}
 
+    local attr = lfs.attributes(self.config.migrationsDir)
+    if not attr then
+        return migrations
+    end
+    assert(attr.mode == "directory", self.config.migrationsDir .. " exists and is not a directory")
+
     local migrationsNamespace = self.config.migrationsDir:gsub("/", ".")
     for file in lfs.dir(self.config.migrationsDir) do
         if file:match("%.lua$") then
