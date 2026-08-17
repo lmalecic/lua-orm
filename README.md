@@ -204,7 +204,7 @@ db:migrateUp()
 ```
 
 #### Migrating down
-If you ever wish to "downgrade" your database to a previous migration, you may use ``db:migrateDown(version)``. This currently allows for downgrading to a specific migration version, specified by ``version`` meaning you can't downgrade to a state before the initial migration.
+If you ever wish to downgrade your database to a previous migration, you may use ``db:migrateDown(version)``. This currently allows for downgrading to a specific migration version specified by ``version``, meaning you can't downgrade to a state before the initial migration.
 
 #### Limits
 Currently, the generator doesn't detect renames, meaning that if you rename a model in the schema, that table will be dropped and a new one will be created.
