@@ -6,18 +6,35 @@ local Timestamp = setmetatable({}, { __index = Type })
 Timestamp.__index = Timestamp
 Timestamp.class = Timestamp
 Timestamp.super = Type
+Timestamp.typeName = "Timestamp"
 
 function Timestamp.new()
 	return setmetatable(Type.new("TIMESTAMP"), Timestamp) --[[@as Timestamp]]
 end
 
 function Timestamp:formatDefault(value)
-	if type(value) == "string" then
+    if type(value) == "string" then
         return "'" .. value .. "'"
-	elseif type(value) == "table" then
-		return value:format()
-	end
-	error("TIMESTAMP default must be a string literal, a CurrentTimestamp instance or Field.raw(...)")
+    elseif type(value) == "table" then
+        return value:format()
+    end
+    error("TIMESTAMP default must be a string literal, a CurrentTimestamp instance or Field.raw(...)")
+end
+
+function Timestamp:equals(other)
+    if other == nil then
+        return false
+    end
+
+    if self == other then
+        return true
+    end
+
+    if getmetatable(self) == getmetatable(other) then
+        return true
+    end
+
+    return false
 end
 
 return Timestamp.new()

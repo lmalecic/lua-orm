@@ -23,7 +23,7 @@ describe("model relations", function()
             { "id", Types.Int, Constraint.PrimaryKey },
             {
                 "parent",
-                Relation.belongsTo("parent", "id", { foreignKey = "parent_ref" }),
+                Relation.belongsTo("parent", "id", { ownerColumn = "parent_ref" }),
                 Constraint.NotNull,
             },
         })

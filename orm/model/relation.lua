@@ -19,13 +19,23 @@ Relation.Kinds = {
 --- @field targetForeignKeyColumn string
 --- @field localColumn string?
 
+--- @class BelongsToOptions
+--- @field ownerColumn string?
+
+--- @class InverseRelationOptions
+--- @field localColumn string?
+
+--- @alias RelationOptions BelongsToOptions | InverseRelationOptions
+
+local TYPE_NAME = "Relation"
+
 --- @alias RelationDefinition BelongsToDefinition | InverseRelationDefinition
 local RelationDefinition = {}
 RelationDefinition.__index = RelationDefinition
 
 --- @param referenceTable string
 --- @param referenceColumn string
---- @param options table?
+--- @param options BelongsToOptions?
 --- @return RelationDefinition
 function Relation.belongsTo(referenceTable, referenceColumn, options)
     assert(type(referenceTable) == "string" and referenceTable ~= "",
@@ -38,19 +48,20 @@ function Relation.belongsTo(referenceTable, referenceColumn, options)
     assert(type(options) == "table",
         "Relation.belongsTo() expects an optional options table; got " .. tostring(options))
 
-    if options.foreignKey ~= nil then
-        assert(type(options.foreignKey) == "string" and options.foreignKey ~= "",
-            "Relation.belongsTo() option 'foreignKey' must be a non-empty string; got " .. tostring(options.foreignKey))
+    if options.ownerColumn ~= nil then
+        assert(type(options.ownerColumn) == "string" and options.ownerColumn ~= "",
+            "Relation.belongsTo() option 'ownerColumn' must be a non-empty string; got " .. tostring(options.ownerColumn))
     end
 
     return setmetatable({
         kind = Relation.Kinds.BELONGS_TO,
         referenceTable = referenceTable,
         referenceColumn = referenceColumn,
-        foreignKeyColumn = options.foreignKey
+        foreignKeyColumn = options.ownerColumn,
     }, RelationDefinition)
 end
 
+--- @param options InverseRelationOptions?
 local function inverse(kind, apiName, referenceTable, targetForeignKeyColumn, options)
     assert(type(referenceTable) == "string" and referenceTable ~= "",
         apiName .. " expects a non-empty reference table name; got " .. tostring(referenceTable))
@@ -78,7 +89,7 @@ end
 
 --- @param referenceTable string
 --- @param targetForeignKeyColumn string
---- @param options table?
+--- @param options InverseRelationOptions?
 --- @return RelationDefinition
 function Relation.hasOne(referenceTable, targetForeignKeyColumn, options)
     return inverse(Relation.Kinds.HAS_ONE, "Relation.hasOne()", referenceTable,
@@ -87,7 +98,7 @@ end
 
 --- @param referenceTable string
 --- @param targetForeignKeyColumn string
---- @param options table?
+--- @param options InverseRelationOptions?
 --- @return RelationDefinition
 function Relation.hasMany(referenceTable, targetForeignKeyColumn, options)
     return inverse(Relation.Kinds.HAS_MANY, "Relation.hasMany()", referenceTable,

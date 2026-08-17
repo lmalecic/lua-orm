@@ -1,9 +1,11 @@
 --- @class Type
 --- @field name string
 --- @field class Type
+--- @field typeName string
 local Type = {}
 Type.__index = Type
 Type.class = Type
+Type.typeName = "Type"
 
 --- @param name string
 --- @return Type
@@ -28,6 +30,11 @@ function Type:formatDefault(value)
     error(self.name .. " does not support default values")
 end
 
+function Type:toGeneratorReferenceString()
+    assert(self.typeName ~= Type.typeName, "The base Type class does not support toGeneratorReferenceString() method")
+    return self.typeName
+end
+
 ---@param obj any
 ---@return boolean
 function Type.isInstance(obj)
@@ -42,6 +49,10 @@ function Type.isInstance(obj)
         class = class.super
     end
     return false
+end
+
+function Type:equals(other)
+    error(self.typeName .. ":equals() is not implemented")
 end
 
 return Type

@@ -7,6 +7,7 @@ local LogicalNode = require("orm.query.node.logical")
 local UnaryNode = require("orm.query.node.unary")
 local OrderNode = require("orm.query.node.order")
 
+local Constraint = require("orm.model.constraint")
 local Alter = require("orm.migrations.alter")
 
 local Modifiers = {
@@ -51,10 +52,23 @@ local Alterations = {
     ADD_COLUMN = "ADD COLUMN %s",
     DROP_COLUMN = "DROP COLUMN %s",
     RENAME_COLUMN = "RENAME COLUMN %s TO %s",
+    ALTER_COLUMN = "ALTER COLUMN %s %s",
 
     ADD_CONSTRAINT = "ADD CONSTRAINT %s %s (%s)",
     ADD_FOREIGN_KEY_CONSTRAINT = "ADD CONSTRAINT %s FOREIGN KEY (%s) REFERENCES %s(%s)",
     DROP_CONSTRAINT = "DROP CONSTRAINT %s",
+}
+
+local AlterColumnFormats = {
+    RENAME = "RENAME COLUMN %s TO %s",
+    SET_TYPE = "TYPE %s",
+    SET_NOT_NULL = "SET NOT NULL",
+    DROP_NOT_NULL = "DROP NOT NULL",
+    SET_DEFAULT = "SET DEFAULT %s",
+    DROP_DEFAULT = "DROP DEFAULT",
+    ADD_AUTO_INCREMENT = "ADD GENERATED %s AS IDENTITY",
+    SET_IDENTITY = "SET GENERATED %s",
+    DROP_IDENTITY = "DROP IDENTITY",
 }
 
 local ConstraintTypes = {
@@ -85,6 +99,7 @@ local OrderDirection = {
 local NameFormats = {
     PRIMARY_KEY = "%s_pkey",
     UNIQUE_KEY = "%s_%s_key",
+    FOREIGN_KEY = "%s_%s_fkey",
 }
 
 local Joins = {
@@ -92,11 +107,31 @@ local Joins = {
     LEFT_JOIN = "LEFT JOIN",
 }
 
+local IdentityModes = {
+    [Constraint.IdentityMode.ALWAYS] = "ALWAYS",
+    [Constraint.IdentityMode.BY_DEFAULT] = "BY DEFAULT",
+}
+
 local PgCompiler = {}
 PgCompiler.__index = PgCompiler
 
 PgCompiler.MAINTENANCE_DATABASE = "postgres"
 PgCompiler.DATABASE_TABLE = "pg_database"
+
+PgCompiler.CATALOG_SCHEMA = "pg_catalog"
+PgCompiler.RELATIONS_TABLE = "pg_class"
+PgCompiler.REL_NAMESPACE_COLUMN = "relnamespace"
+PgCompiler.REL_NAME_COLUMN = "relname"
+PgCompiler.REL_KIND_COLUMN = "relkind"
+
+PgCompiler.SCHEMAS_TABLE = "pg_namespace"
+PgCompiler.OID_COLUMN = "oid"
+PgCompiler.NAMESPACE_NAME_COLUMN = "nspname"
+
+PgCompiler.PUBLIC_SCHEMA = "public"
+PgCompiler.ORDINARY_TABLE = "r"
+
+PgCompiler.MIGRATION_HISTORY_TABLE = "_lua_orm_migration_history"
 
 function PgCompiler.new(postgres)
     local self = setmetatable({}, PgCompiler)
@@ -163,8 +198,53 @@ end
 function PgCompiler:compileAlteration(alteration)
     if alteration.kind == Alter.Kinds.ADD_COLUMN then
         return Alterations.ADD_COLUMN:format(self:compileColumn(alteration.field))
+    elseif alteration.kind == Alter.Kinds.ALTER_COLUMN and alteration.operation == Alter.ColumnOperation.RENAME then
+        return Alterations.RENAME_COLUMN:format(
+            self.postgres:escape_identifier(alteration.column),
+            self.postgres:escape_identifier(alteration.newName)
+        )
+    elseif alteration.kind == Alter.Kinds.ALTER_COLUMN and alteration.operation == Alter.ColumnOperation.SET_TYPE then
+        return Alterations.ALTER_COLUMN:format(
+            self.postgres:escape_identifier(alteration.column),
+            AlterColumnFormats.SET_TYPE:format(self:compileType(alteration.type))
+        )
+    elseif alteration.kind == Alter.Kinds.ALTER_COLUMN and alteration.operation == Alter.ColumnOperation.SET_NOT_NULL then
+        return Alterations.ALTER_COLUMN:format(
+            self.postgres:escape_identifier(alteration.column),
+            AlterColumnFormats.SET_NOT_NULL
+        )
+    elseif alteration.kind == Alter.Kinds.ALTER_COLUMN and alteration.operation == Alter.ColumnOperation.DROP_NOT_NULL then
+        return Alterations.ALTER_COLUMN:format(
+            self.postgres:escape_identifier(alteration.column),
+            AlterColumnFormats.DROP_NOT_NULL
+        )
+    elseif alteration.kind == Alter.Kinds.ALTER_COLUMN and alteration.operation == Alter.ColumnOperation.SET_DEFAULT then
+        return Alterations.ALTER_COLUMN:format(
+            self.postgres:escape_identifier(alteration.column),
+            AlterColumnFormats.SET_DEFAULT:format(self:compileDefaultWithoutValidation(alteration.default))
+        )
+    elseif alteration.kind == Alter.Kinds.ALTER_COLUMN and alteration.operation == Alter.ColumnOperation.DROP_DEFAULT then
+        return Alterations.ALTER_COLUMN:format(
+            self.postgres:escape_identifier(alteration.column),
+            AlterColumnFormats.DROP_DEFAULT
+        )
+    elseif alteration.kind == Alter.Kinds.ALTER_COLUMN and alteration.operation == Alter.ColumnOperation.ADD_AUTO_INCREMENT then
+        return Alterations.ALTER_COLUMN:format(
+            self.postgres:escape_identifier(alteration.column),
+            AlterColumnFormats.ADD_AUTO_INCREMENT:format(assert(IdentityModes[alteration.identityMode], "Unsupported identity mode: " .. tostring(alteration.identityMode)))
+        )
+    elseif alteration.kind == Alter.Kinds.ALTER_COLUMN and alteration.operation == Alter.ColumnOperation.SET_IDENTITY then
+        return Alterations.ALTER_COLUMN:format(
+            self.postgres:escape_identifier(alteration.column),
+            AlterColumnFormats.SET_IDENTITY:format(alteration.identityMode)
+        )
+    elseif alteration.kind == Alter.Kinds.ALTER_COLUMN and alteration.operation == Alter.ColumnOperation.DROP_IDENTITY then
+        return Alterations.ALTER_COLUMN:format(
+            self.postgres:escape_identifier(alteration.column),
+            AlterColumnFormats.DROP_IDENTITY
+        )
     elseif alteration.kind == Alter.Kinds.DROP_COLUMN then
-        return Alterations.DROP_COLUMN:format(self.postgres:escape_identifier(alteration.name))
+        return Alterations.DROP_COLUMN:format(self.postgres:escape_identifier(alteration.column))
     elseif alteration.kind == Alter.Kinds.ADD_CONSTRAINT then
         if alteration.type == Alter.ConstraintTypes.FOREIGN_KEY then
             return Alterations.ADD_FOREIGN_KEY_CONSTRAINT:format(
@@ -179,7 +259,7 @@ function PgCompiler:compileAlteration(alteration)
     elseif alteration.kind == Alter.Kinds.DROP_CONSTRAINT then
         return Alterations.DROP_CONSTRAINT:format(self.postgres:escape_identifier(alteration.name))
     end
-
+    -- TODO: implement newly added alterations
     error("Unsupported alteration type!")
 end
 
@@ -266,14 +346,28 @@ function PgCompiler:compileType(typeInstance)
     return typeInstance:toSql()
 end
 
+--- Compiles the default value of a field, validates it through the Type instance if it's a non-primitive value
 --- @param field Field
+--- @return string
 function PgCompiler:compileDefault(field)
     -- atm no multi-provider support, formatting is buried in the type instance
     if type(field.default) ~= "table" then
         return self.postgres:escape_literal(field.default)
     end
 
-    return field.type:formatDefault(field.default)
+    return field.type:formatDefault(field.default) -- this also validates the value
+end
+
+--- Compiles the default value of a field without validating it through the Type instance
+--- @param default any
+--- @return string
+function PgCompiler:compileDefaultWithoutValidation(default)
+    if type(default) ~= "table" then
+        return self.postgres:escape_literal(default)
+    end
+
+    assert(default.format ~= nil, "Non-primitive default values must implement format() method to be compiled")
+    return default:format()
 end
 
 --- @param field Field
@@ -407,6 +501,10 @@ end
 
 function PgCompiler:getUniqueKeyConstraintName(tableName, columnName)
     return NameFormats.UNIQUE_KEY:format(tableName, columnName)
+end
+
+function PgCompiler:getForeignKeyConstraintName(tableName, columnName)
+    return NameFormats.FOREIGN_KEY:format(tableName, columnName)
 end
 
 --- @param entry EntityEntry

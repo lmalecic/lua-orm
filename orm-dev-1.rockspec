@@ -11,6 +11,7 @@ dependencies = {
 	"luasocket",
 	"luabitop",
 	"luaossl",
+	"luafilesystem",
 }
 
 build = {

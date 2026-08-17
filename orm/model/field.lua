@@ -24,8 +24,10 @@ Field.__index = Field
 --- @return Field
 function Field.new(definition)
     assert(type(definition) == "table", "Field definition must be a table")
-    assert(type(definition[1]) == "string", "First element of field definition must be a string indicating the column name")
-    assert(Type.isInstance(definition[2]), "Second element of field definition must be a subclass of Type indicating the field type")
+    assert(type(definition[1]) == "string",
+        "First element of field definition must be a string indicating the column name")
+    assert(Type.isInstance(definition[2]),
+        "Second element of field definition must be a subclass of Type indicating the field type")
 
     local fieldName = definition[1] --[[@as string]]
     local fieldType = definition[2] --[[@as Type]]
@@ -40,17 +42,21 @@ function Field.new(definition)
         foreignKey = nil,
         autoIncrement = false,
         identityMode = nil,
-	}, Field)
+    }, Field)
 
     for i = 3, #definition do
         local constraint = definition[i]
-        assert(Constraint.isInstance(constraint), "Invalid field definition constraint at index " .. i .. "; all objects starting from index 3 in the field defintion must be Constraint objects")
+        assert(Constraint.isInstance(constraint),
+            "Invalid field definition constraint at index " ..
+            i .. "; all objects starting from index 3 in the field defintion must be Constraint objects")
 
         if constraint.kind == Constraint.Kinds.PRIMARY_KEY then
             self.primaryKey = true
+            self.nullable = false
         elseif constraint.kind == Constraint.Kinds.AUTO_INCREMENT then
             assert(self.default == nil, "Auto-increment fields cannot have a default value")
-            assert(self.foreignKey == nil, "Auto-increment fields cannot have a foreign key constraint, idk why you'd ever want that, this is an anti-pattern.")
+            assert(self.foreignKey == nil,
+                "Auto-increment fields cannot have a foreign key constraint, idk why you'd ever want that, this is an anti-pattern.")
             self.autoIncrement = true
             self.identityMode = constraint.identityMode
         elseif constraint.kind == Constraint.Kinds.NOT_NULL then
@@ -69,7 +75,45 @@ function Field.new(definition)
         end
     end
 
-	return self
+    return self
+end
+
+-- Returns the field definition as a string of Lua code
+-- Example: { "id", Types.Int, Constraint.PrimaryKey, ... }
+function Field:definitionToCode()
+    local constraints = {}
+    local name = ("%q"):format(self.name)
+    local type = "Types." .. self.type:toGeneratorReferenceString()
+
+    if self.primaryKey then
+        table.insert(constraints, Constraint.asCode(Constraint.PrimaryKey))
+    end
+
+    if self.autoIncrement then
+        table.insert(constraints, Constraint.asCode(Constraint.AutoIncrement(self.identityMode)))
+    end
+
+    if self.foreignKey then
+        table.insert(constraints, Constraint.asCode(Constraint.ForeignKey(self.foreignKey.referenceTable, self.foreignKey.referenceColumn)))
+    end
+
+    if self.unique then
+        table.insert(constraints, Constraint.asCode(Constraint.Unique))
+    end
+
+    if not self.nullable then
+        table.insert(constraints, Constraint.asCode(Constraint.NotNull))
+    end
+
+    if self.default ~= nil then
+        table.insert(constraints, Constraint.asCode(Constraint.Default(self.default)))
+    end
+
+    if #constraints > 0 then
+        return ("{ %s, %s, %s }"):format(name, type, table.concat(constraints, ", "))
+    end
+
+    return ("{ %s, %s }"):format(name, type)
 end
 
 return Field
