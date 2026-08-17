@@ -1,4 +1,4 @@
-package.path = "./?.lua;./?/init.lua;" .. package.path
+-- package.path = "./?.lua;./?/init.lua;" .. package.path
 package.path = "./examples/ex1/?.lua;" .. package.path
 
 local MigrationGenerator = require("orm.migrations.generator")

@@ -1,7 +1,5 @@
 ---@diagnostic disable: undefined-global, undefined-field
 
-package.path = "./?.lua;./?/init.lua;" .. package.path
-
 local PgCompiler = require("orm.query.compiler.pg")
 local FieldProxy = require("orm.query.proxy.field")
 local OrderFieldProxy = require("orm.query.proxy.order-field")

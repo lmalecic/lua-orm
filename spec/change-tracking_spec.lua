@@ -1,5 +1,4 @@
 ---@diagnostic disable: undefined-global, undefined-field
-package.path = "./?.lua;./?/init.lua;" .. package.path
 
 local Model = require("orm.model")
 local Types = require("orm.model.types")
