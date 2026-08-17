@@ -15,7 +15,7 @@ local Test = Model("test", {
     { "float",         Types.Float },
     { "newColumn", Types.Int },
 
-    { "test2s", Relation.hasMany("test2", "test_id") }
+    -- { "test2s", Relation.hasMany("test2", "test_id") }
 })
 
 return Test

@@ -20,7 +20,7 @@ Relation.Kinds = {
 --- @field localColumn string?
 
 --- @class BelongsToOptions
---- @field ownerColumn string?
+--- @field foreignKeyColumnName string?
 
 --- @class InverseRelationOptions
 --- @field localColumn string?
@@ -48,16 +48,16 @@ function Relation.belongsTo(referenceTable, referenceColumn, options)
     assert(type(options) == "table",
         "Relation.belongsTo() expects an optional options table; got " .. tostring(options))
 
-    if options.ownerColumn ~= nil then
-        assert(type(options.ownerColumn) == "string" and options.ownerColumn ~= "",
-            "Relation.belongsTo() option 'ownerColumn' must be a non-empty string; got " .. tostring(options.ownerColumn))
+    if options.foreignKeyColumnName ~= nil then
+        assert(type(options.foreignKeyColumnName) == "string" and options.foreignKeyColumnName ~= "",
+            "Relation.belongsTo() option 'ownerColumn' must be a non-empty string; got " .. tostring(options.foreignKeyColumnName))
     end
 
     return setmetatable({
         kind = Relation.Kinds.BELONGS_TO,
         referenceTable = referenceTable,
         referenceColumn = referenceColumn,
-        foreignKeyColumn = options.ownerColumn,
+        foreignKeyColumn = options.foreignKeyColumnName,
     }, RelationDefinition)
 end
 

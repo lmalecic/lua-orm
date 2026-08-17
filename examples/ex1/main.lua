@@ -5,8 +5,8 @@ local MigrationGenerator = require("orm.migrations.generator")
 local spec = require("orm.query.specification")
 local db = require("context")
 
--- local generator = MigrationGenerator.new("Initial Migration", db, { migrationsDirectory = db.config.migrationsDir })
--- generator:generate()
+local generator = MigrationGenerator.new("Initial Migration", db, { migrationsDirectory = db.config.migrationsDir })
+generator:generate()
 
 -- db:migrateUp()
 
@@ -55,7 +55,13 @@ local db = require("context")
 
 
 -- db.data.test:where(function(test)
---     return spec.and_(test.id:equals(1), spec.or_(test.text:equals("BABA"), test.char:equals("brah")))
+--     return spec.and_(
+--         test.id:equals(1),
+--         spec.or_(
+--             test.text:equals("BABA"),
+--             test.char:equals("brah")
+--         )
+--     )
 -- end):orderBy(function(test)
 --     return test.created_at:asc(), test.id:desc()
 -- end):all()
