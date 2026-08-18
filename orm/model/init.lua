@@ -16,6 +16,9 @@ local EntityRelationProxy = require("orm.query.proxy.entity-relation")
 --- @field relations table<string, ModelRelation>
 --- @field primaryKey string?
 --- @field new fun(data: table, applyDefaults: boolean?): ModelClass
+--- @field forEach fun(): fun(): string, any
+--- @field forEachAttribute fun(): fun(): string, any
+--- @field forEachAttributeAndRelation fun(): string, any
 --- @field resolveRelations fun(modelClasses: table<string, ModelClass>)
 --- @field _setLoadedRelation fun(entity: ModelClass, relationName: string, relatedValue: any)
 --- @field asProxy fun(): EntityProxy
@@ -146,7 +149,72 @@ return function(tableName, fieldSchema)
         return self
     end
 
-    function ModelClass.__index(self, key)
+    local function forEach(entity, includeForeignKeys, includeRelations)
+        local pool = {}
+
+        local attributes = rawget(entity, "_attributes")
+        local relations = rawget(entity, "_relations")
+        local loadedRelations = rawget(entity, "_loadedRelations")
+
+        for _, field in ipairs(ModelClass.fields) do
+            local relation = relationsByForeignKey[field.name]
+
+            if includeForeignKeys
+                or not relation
+                or not loadedRelations[relation.name]
+            then
+                table.insert(pool, {
+                    name = field.name,
+                    type = "field"
+                })
+            end
+        end
+
+        if includeRelations then
+            for _, relation in pairs(ModelClass.relations) do
+                if loadedRelations[relation.name] then
+                    table.insert(pool, {
+                        name = relation.name,
+                        type = "relation"
+                    })
+                end
+            end
+        end
+
+        local i = 0
+
+        return function()
+            i = i + 1
+
+            local item = pool[i]
+            if not item then
+                return nil
+            end
+
+            if item.type == "relation" then
+                return item.name, relations[item.name]
+            end
+
+            return item.name, attributes[item.name]
+        end
+    end
+
+    --- Iterates over all attributes and loaded relations, without loaded relation foreign key fields.
+    function ModelClass:forEach()
+        return forEach(self, false, true)
+    end
+
+    --- Iterates over all attributes including foreign key columns, without any relations.
+    function ModelClass:forEachAttribute()
+        return forEach(self, true, false)
+    end
+
+    --- Iterates over all attributes and relations, including foreign key fields.
+    function ModelClass:forEachAttributeAndRelation()
+        return forEach(self, true, true)
+    end
+
+    function ModelClass:__index(key)
         if ModelClass.fieldsByName[key] then
             return rawget(self, "_attributes")[key]
         end
@@ -300,7 +368,7 @@ return function(tableName, fieldSchema)
         end
     end
 
-    function ModelClass.__newindex(self, key, value)
+    function ModelClass:__newindex(key, value)
         local field = ModelClass.fieldsByName[key]
         if field then
             local attributes = rawget(self, "_attributes")
