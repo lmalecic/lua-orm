@@ -53,6 +53,16 @@ function EntityEntry:acceptChanges()
     self.changedFields = {}
 end
 
+function EntityEntry:rejectChanges()
+    local attributes = rawget(self.entity, "_attributes")
+    for fieldName in pairs(self.changedFields) do
+        attributes[fieldName] = Value.decode(self.originalValues[fieldName])
+    end
+    self.state = EntityEntry.State.UNCHANGED
+    self.originalValues = {}
+    self.changedFields = {}
+end
+
 function EntityEntry:getOriginalOrCurrentValue(fieldName)
     if self.changedFields[fieldName] then
         return Value.decode(self.originalValues[fieldName])

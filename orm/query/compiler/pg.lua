@@ -86,6 +86,9 @@ local Operators = {
     [ComparisonNode.Operators.LESS_THAN] = "<",
     [ComparisonNode.Operators.LESS_THAN_OR_EQUAL] = "<=",
     [ComparisonNode.Operators.LIKE] = "LIKE",
+    [ComparisonNode.Operators.NOT_LIKE] = "NOT LIKE",
+    [ComparisonNode.Operators.ILIKE] = "ILIKE",
+    [ComparisonNode.Operators.NOT_ILIKE] = "NOT ILIKE",
     [UnaryNode.Operators.IS_NULL] = "IS NULL",
     [UnaryNode.Operators.IS_NOT_NULL] = "IS NOT NULL",
     [UnaryNode.Operators.NOT] = "NOT",
@@ -432,9 +435,11 @@ end
 function PgCompiler:_compileSelectModifiers(query, fragments)
     if query.nodes.where and #query.nodes.where > 0 then
         table.insert(fragments, Clauses.WHERE)
+        local whereClauses = {}
         for _, node in ipairs(query.nodes.where) do
-            table.insert(fragments, self:_compileWhereNode(node))
+            table.insert(whereClauses, self:_compileWhereNode(node))
         end
+        table.insert(fragments, table.concat(whereClauses, " AND "))
     end
 
     if query.nodes.orderBy and #query.nodes.orderBy > 0 then

@@ -71,6 +71,14 @@ function FieldProxy:notLike(pattern)
 	return ComparisonNode.new(self, ComparisonNode.Operators.NOT_LIKE, toNode(pattern))
 end
 
+function FieldProxy:ilike(pattern)
+	return ComparisonNode.new(self, ComparisonNode.Operators.ILIKE, toNode(pattern))
+end
+
+function FieldProxy:notIlike(pattern)
+	return ComparisonNode.new(self, ComparisonNode.Operators.NOT_ILIKE, toNode(pattern))
+end
+
 function FieldProxy:isNull()
 	return UnaryNode.new(self, UnaryNode.Operators.IS_NULL)
 end

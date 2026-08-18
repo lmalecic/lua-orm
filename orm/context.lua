@@ -142,10 +142,11 @@ function Context:saveChanges()
     local modified = self.changeTracker:entriesInState(EntityEntry.State.MODIFIED)
     local deleted = self.changeTracker:entriesInState(EntityEntry.State.DELETED)
 
-    self:transaction(function()
-        local compiler = self:getCompiler()
-
-        for _, entry in ipairs(added) do
+    local succeeded, transactionError = pcall(function()
+        self:transaction(function()
+            local compiler = self:getCompiler()
+    
+            for _, entry in ipairs(added) do
             local sql, params = compiler:compileInsert(entry)
             local result = self:query(sql, unpack(params))
 
@@ -163,9 +164,24 @@ function Context:saveChanges()
 
         for _, entry in ipairs(deleted) do
             local sql, params = compiler:compileDelete(entry)
-            self:query(sql, unpack(params))
-        end
+                self:query(sql, unpack(params))
+            end
+        end)
     end)
+
+    if not succeeded then
+        -- PostgreSQL rolled the transaction back; mirror that rollback in the
+        -- identity map and change tracker so a later save cannot retry stale work.
+        for _, entry in ipairs(added) do
+            for _, field in ipairs(entry.modelClass.fields) do
+                if field.autoIncrement then rawget(entry.entity, "_attributes")[field.name] = nil end
+            end
+            self.changeTracker:detach(entry.entity)
+        end
+        for _, entry in ipairs(modified) do entry:rejectChanges() end
+        for _, entry in ipairs(deleted) do entry.state = EntityEntry.State.UNCHANGED end
+        error(transactionError, 0)
+    end
 
     for _, entry in ipairs(added) do
         entry:acceptChanges()

@@ -12,6 +12,8 @@ ComparisonNode.Operators = {
     NOT_IN = "NOT IN",
     LIKE = "LIKE",
     NOT_LIKE = "NOT LIKE",
+    ILIKE = "ILIKE",
+    NOT_ILIKE = "NOT ILIKE",
 }
 
 function ComparisonNode.new(left, op, right)
