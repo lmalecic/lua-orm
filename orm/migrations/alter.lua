@@ -150,7 +150,7 @@ function AlterMetatable:toCode()
             ValueHelper.valueToCode(self.identityMode),
             ValueHelper.valueToCode(self.startWith) or "nil")
     elseif self.kind == Alter.Kinds.ALTER_COLUMN and self.operation == Alter.ColumnOperation.SET_IDENTITY then
-        return ('Alter.setColumnIdentity(%q, %s)'):format(self.column, ValueHelper.valueToCode(self.identityMode))
+        return ('Alter.setColumnIdentity(%q, %s)'):format(self.column, Constraint.identityModeAsCode(self.identityMode))
     elseif self.kind == Alter.Kinds.ALTER_COLUMN and self.operation == Alter.ColumnOperation.DROP_IDENTITY then
         return ('Alter.dropColumnIdentity("%s")'):format(self.column)
     elseif self.kind == Alter.Kinds.ADD_CONSTRAINT and self.type == Alter.ConstraintTypes.PRIMARY_KEY then

@@ -236,7 +236,7 @@ function PgCompiler:compileAlteration(alteration)
     elseif alteration.kind == Alter.Kinds.ALTER_COLUMN and alteration.operation == Alter.ColumnOperation.SET_IDENTITY then
         return Alterations.ALTER_COLUMN:format(
             self.postgres:escape_identifier(alteration.column),
-            AlterColumnFormats.SET_IDENTITY:format(alteration.identityMode)
+            AlterColumnFormats.SET_IDENTITY:format(IdentityModes[alteration.identityMode])
         )
     elseif alteration.kind == Alter.Kinds.ALTER_COLUMN and alteration.operation == Alter.ColumnOperation.DROP_IDENTITY then
         return Alterations.ALTER_COLUMN:format(

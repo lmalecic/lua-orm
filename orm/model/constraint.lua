@@ -58,6 +58,11 @@ Constraint.NotNull = { kind = Constraint.Kinds.NOT_NULL }
 --- @type UniqueConstraint
 Constraint.Unique = { kind = Constraint.Kinds.UNIQUE }
 
+function Constraint.identityModeAsCode(identityMode)
+    assert(Constraint.IdentityMode[identityMode] ~= nil, "Invalid identity mode: " .. tostring(identityMode))
+    return ("Constraint.IdentityMode.%s"):format(identityMode)
+end
+
 --- @param constraint Constraint
 function Constraint.asCode(constraint)
     if constraint.kind == Constraint.Kinds.PRIMARY_KEY then
@@ -69,7 +74,7 @@ function Constraint.asCode(constraint)
     elseif constraint.kind == Constraint.Kinds.DEFAULT then
         return ("Constraint.Default(%s)"):format(ValueHelper.valueToCode(constraint.value))
     elseif constraint.kind == Constraint.Kinds.AUTO_INCREMENT then
-        return ("Constraint.AutoIncrement(%s)"):format("Constraint.IdentityMode." .. constraint.identityMode)
+        return ("Constraint.AutoIncrement(%s)"):format(Constraint.identityModeAsCode(constraint.identityMode))
     elseif constraint.kind == Constraint.Kinds.FOREIGN_KEY then
         return ("Constraint.ForeignKey(%q, %q)"):format(constraint.referenceTable, constraint.referenceColumn)
     end
